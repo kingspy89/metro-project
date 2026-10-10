@@ -107,6 +107,21 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
     return filterMode === mode;
   };
 
+  const isStationVisible = (stop) => {
+    if (filterMode === 'all' || filterMode === 'route_only') return true;
+    return stop.transport_mode === filterMode;
+  };
+
+  const modeFilterColor = {
+    all: '#38BDF8',
+    metro: '#3B82F6',
+    brts: '#10B981',
+    amts: '#F59E0B',
+  };
+
+  // Only show transfers when all modes are visible (multi-mode context)
+  const showTransfers = filterMode === 'all' || filterMode === 'route_only';
+
   return (
     <div className="metro-map-wrapper" style={{ position: 'relative', width: '100%', overflow: 'hidden', borderRadius: '16px', background: 'var(--bg-station)', border: '1px solid var(--border-board)' }}>
       {/* Map Interactive Toolbar */}
@@ -153,25 +168,31 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
 
         {/* Network Filter Pills */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          {['all', 'metro', 'brts', 'amts'].map(mode => (
-            <button
-              key={mode}
-              onClick={() => setFilterMode(mode)}
-              style={{
-                background: filterMode === mode ? 'var(--line-metro)' : 'transparent',
-                color: filterMode === mode ? '#FFFFFF' : 'var(--text-secondary)',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '4px 8px',
-                fontSize: '0.74rem',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                cursor: 'pointer'
-              }}
-            >
-              {mode}
-            </button>
-          ))}
+          {['all', 'metro', 'brts', 'amts'].map(mode => {
+            const isActive = filterMode === mode;
+            const activeColor = modeFilterColor[mode];
+            return (
+              <button
+                key={mode}
+                onClick={() => setFilterMode(mode)}
+                style={{
+                  background: isActive ? activeColor : 'transparent',
+                  color: isActive ? '#FFFFFF' : 'var(--text-secondary)',
+                  border: isActive ? 'none' : '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '6px',
+                  padding: '4px 9px',
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: isActive ? `0 0 10px ${activeColor}55` : 'none'
+                }}
+              >
+                {mode === 'all' ? 'All Lines' : mode === 'metro' ? '🚇 Metro' : mode === 'brts' ? '🚌 BRTS' : '🚎 AMTS'}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -254,51 +275,53 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
             </text>
           </g>
 
-          {/* 3. Walking Transfer Connectors (thin dotted lines) */}
-          <g id="transfer-connectors">
-            {transfersData.map((tr, idx) => {
-              const s1 = stopsById.get(tr.from_stop_id);
-              const s2 = stopsById.get(tr.to_stop_id);
-              if (!s1 || !s2 || tr.from_stop_id > tr.to_stop_id) return null;
+          {/* 3. Walking Transfer Connectors (thin dotted lines) — only in all-mode view */}
+          {showTransfers && (
+            <g id="transfer-connectors">
+              {transfersData.map((tr, idx) => {
+                const s1 = stopsById.get(tr.from_stop_id);
+                const s2 = stopsById.get(tr.to_stop_id);
+                if (!s1 || !s2 || tr.from_stop_id > tr.to_stop_id) return null;
 
-              const isPartOfActiveTrip = journeyStopIds.includes(tr.from_stop_id) && journeyStopIds.includes(tr.to_stop_id);
+                const isPartOfActiveTrip = journeyStopIds.includes(tr.from_stop_id) && journeyStopIds.includes(tr.to_stop_id);
 
-              return (
-                <g key={`tr-${idx}`}>
-                  <line
-                    x1={s1.schematic_x}
-                    y1={s1.schematic_y}
-                    x2={s2.schematic_x}
-                    y2={s2.schematic_y}
-                    stroke={isPartOfActiveTrip ? '#38BDF8' : '#94A3B8'}
-                    strokeWidth={isPartOfActiveTrip ? '4' : '2'}
-                    strokeDasharray="4 4"
-                    opacity={isPartOfActiveTrip ? 1 : 0.5}
-                  />
-                  <rect
-                    x={(s1.schematic_x + s2.schematic_x) / 2 - 25}
-                    y={(s1.schematic_y + s2.schematic_y) / 2 - 8}
-                    width="50"
-                    height="16"
-                    rx="4"
-                    fill="var(--bg-station)"
-                    stroke="var(--border-board)"
-                    strokeWidth="1"
-                  />
-                  <text
-                    x={(s1.schematic_x + s2.schematic_x) / 2}
-                    y={(s1.schematic_y + s2.schematic_y) / 2 + 4}
-                    fill="#CBD5E1"
-                    fontSize="9.5"
-                    fontFamily="monospace"
-                    textAnchor="middle"
-                  >
-                    {tr.walking_distance_m}m
-                  </text>
-                </g>
-              );
-            })}
-          </g>
+                return (
+                  <g key={`tr-${idx}`}>
+                    <line
+                      x1={s1.schematic_x}
+                      y1={s1.schematic_y}
+                      x2={s2.schematic_x}
+                      y2={s2.schematic_y}
+                      stroke={isPartOfActiveTrip ? '#38BDF8' : '#94A3B8'}
+                      strokeWidth={isPartOfActiveTrip ? '4' : '2'}
+                      strokeDasharray="4 4"
+                      opacity={isPartOfActiveTrip ? 1 : 0.5}
+                    />
+                    <rect
+                      x={(s1.schematic_x + s2.schematic_x) / 2 - 25}
+                      y={(s1.schematic_y + s2.schematic_y) / 2 - 8}
+                      width="50"
+                      height="16"
+                      rx="4"
+                      fill="var(--bg-station)"
+                      stroke="var(--border-board)"
+                      strokeWidth="1"
+                    />
+                    <text
+                      x={(s1.schematic_x + s2.schematic_x) / 2}
+                      y={(s1.schematic_y + s2.schematic_y) / 2 + 4}
+                      fill="#CBD5E1"
+                      fontSize="9.5"
+                      fontFamily="monospace"
+                      textAnchor="middle"
+                    >
+                      {tr.walking_distance_m}m
+                    </text>
+                  </g>
+                );
+              })}
+            </g>
+          )}
 
           {/* 4. Base Transit Network Lines */}
           {/* Metro East-West Line (Solid Blue Corridor) */}
@@ -442,8 +465,8 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
             />
           )}
 
-          {/* 6. Stations, Interchange Hubs, and Non-Overlapping Labels */}
-          {stopsData.map(stop => {
+          {/* 6. Stations, Interchange Hubs, and Non-Overlapping Labels (filtered by mode) */}
+          {stopsData.filter(isStationVisible).map(stop => {
             const isSelectedOrigin = selectedJourney && selectedJourney.originStop.stop_id === stop.stop_id;
             const isSelectedDest = selectedJourney && selectedJourney.destStop.stop_id === stop.stop_id;
             const isTripStop = journeyStopIds.includes(stop.stop_id);
