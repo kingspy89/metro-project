@@ -1,0 +1,15 @@
+{
+  "assumed_wait_minutes": {
+    "metro": 4,
+    "brts": 5,
+    "amts": 8
+  },
+  "transfer_penalty_minutes": 3,
+  "unified_discount": 5.0,
+  "max_transfers": 3,
+  "walking_speed_m_per_min": 70,
+  "long_walk_threshold_m": 300,
+  "last_updated": "2026-10-10",
+  "city": "Ahmedabad",
+  "disclaimer": "All stops, fares, durations, and transfer distances in this prototype are illustrative sample data unless verified against official sources."
+}

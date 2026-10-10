@@ -1,0 +1,15 @@
+[
+  { "location_id": "LOC_1", "location_name": "Thaltej Cross Road & SG Highway", "associated_stop_id": "M_EW_02", "access_walk_m": 80, "source": "verified" },
+  { "location_id": "LOC_2", "location_name": "Gujarat University & Navrangpura", "associated_stop_id": "M_EW_05", "access_walk_m": 120, "source": "verified" },
+  { "location_id": "LOC_3", "location_name": "Old High Court & Income Tax", "associated_stop_id": "M_OHC", "access_walk_m": 100, "source": "verified" },
+  { "location_id": "LOC_4", "location_name": "Ahmedabad Central Railway Station (Kalupur)", "associated_stop_id": "M_KALUPUR", "access_walk_m": 80, "source": "verified" },
+  { "location_id": "LOC_5", "location_name": "Narendra Modi Stadium (Motera)", "associated_stop_id": "M_MOTERA", "access_walk_m": 120, "source": "verified" },
+  { "location_id": "LOC_6", "location_name": "Gujarat International Finance Tec-City (GIFT City)", "associated_stop_id": "M_GIFT_02", "access_walk_m": 150, "source": "verified" },
+  { "location_id": "LOC_7", "location_name": "Mahatma Mandir Convention Centre (Gandhinagar)", "associated_stop_id": "M_GN_17", "access_walk_m": 160, "source": "verified" },
+  { "location_id": "LOC_8", "location_name": "Bopal Residential Hub & South Bopal", "associated_stop_id": "B_BOPAL", "access_walk_m": 90, "source": "verified" },
+  { "location_id": "LOC_9", "location_name": "ISKCON Temple & SG Highway Mall", "associated_stop_id": "B_ISKCON", "access_walk_m": 110, "source": "verified" },
+  { "location_id": "LOC_10", "location_name": "Shivranjani Cross Roads & Satellite", "associated_stop_id": "B_SHIVRANJANI", "access_walk_m": 70, "source": "verified" },
+  { "location_id": "LOC_11", "location_name": "LD College of Engineering", "associated_stop_id": "A_LDENGG", "access_walk_m": 60, "source": "verified" },
+  { "location_id": "LOC_12", "location_name": "Kankaria Lakefront & Zoo", "associated_stop_id": "A_KANKARIA", "access_walk_m": 120, "source": "verified" },
+  { "location_id": "LOC_13", "location_name": "Lal Darwaja Heritage Old City & Bus Hub", "associated_stop_id": "A_LALDARWAJA", "access_walk_m": 80, "source": "verified" }
+]

@@ -1,0 +1,47 @@
+[
+  {
+    "line_id": "LINE_METRO_EW",
+    "line_name": "Metro East-West Corridor (Blue Line)",
+    "mode": "metro",
+    "colour_token": "--line-metro",
+    "colour_hex": "#3B82F6",
+    "pattern": "solid",
+    "description": "Thaltej Gam to Vastral Gam via Old High Court & Kalupur"
+  },
+  {
+    "line_id": "LINE_METRO_NS",
+    "line_name": "Metro North-South Corridor (Red/Orange Line)",
+    "mode": "metro",
+    "colour_token": "--line-metro-ns",
+    "colour_hex": "#EF4444",
+    "pattern": "solid",
+    "description": "APMC to Motera Stadium via Old High Court Interchange"
+  },
+  {
+    "line_id": "LINE_METRO_GANDHINAGAR",
+    "line_name": "Metro Phase 2 Gandhinagar & GIFT City Extension",
+    "mode": "metro",
+    "colour_token": "--line-metro-gn",
+    "colour_hex": "#8B5CF6",
+    "pattern": "solid",
+    "description": "Motera Stadium to Mahatma Mandir & GIFT City via GNLU"
+  },
+  {
+    "line_id": "LINE_BRTS_TRUNK",
+    "line_name": "Janmarg BRTS Circular Trunk (Green Line)",
+    "mode": "brts",
+    "colour_token": "--line-brts",
+    "colour_hex": "#10B981",
+    "pattern": "chevron",
+    "description": "RTO Circle – Ranip – Shivranjani – ISKCON – Bopal – Geeta Mandir – Maninagar"
+  },
+  {
+    "line_id": "LINE_AMTS_FEEDER",
+    "line_name": "AMTS City Connect Feeder (Amber Line)",
+    "mode": "amts",
+    "colour_token": "--line-amts",
+    "colour_hex": "#F59E0B",
+    "pattern": "dashed",
+    "description": "Lal Darwaja Central Terminal, LD College, Law Garden, Science City, Kankaria"
+  }
+]

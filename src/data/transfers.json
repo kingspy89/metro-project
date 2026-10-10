@@ -1,0 +1,10 @@
+[
+  { "from_stop_id": "M_OHC", "to_stop_id": "B_OHC", "walking_distance_m": 160, "walking_time_minutes": 2, "source": "verified" },
+  { "from_stop_id": "B_OHC", "to_stop_id": "M_OHC", "walking_distance_m": 160, "walking_time_minutes": 2, "source": "verified" },
+  { "from_stop_id": "M_KALUPUR", "to_stop_id": "B_KALUPUR", "walking_distance_m": 120, "walking_time_minutes": 2, "source": "verified" },
+  { "from_stop_id": "B_KALUPUR", "to_stop_id": "M_KALUPUR", "walking_distance_m": 120, "walking_time_minutes": 2, "source": "verified" },
+  { "from_stop_id": "M_RANIP", "to_stop_id": "B_RANIP", "walking_distance_m": 140, "walking_time_minutes": 2, "source": "verified" },
+  { "from_stop_id": "B_RANIP", "to_stop_id": "M_RANIP", "walking_distance_m": 140, "walking_time_minutes": 2, "source": "verified" },
+  { "from_stop_id": "M_EW_05", "to_stop_id": "A_LDENGG", "walking_distance_m": 220, "walking_time_minutes": 3, "source": "verified" },
+  { "from_stop_id": "A_LDENGG", "to_stop_id": "M_EW_05", "walking_distance_m": 220, "walking_time_minutes": 3, "source": "verified" }
+]
