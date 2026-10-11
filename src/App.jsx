@@ -154,8 +154,22 @@ export default function App() {
 
   return (
     <div className="app-container" lang={activeLang === 'gu' ? 'gu' : 'en'}>
-      {/* Top Station Signage Header */}
-      <header className="station-header">
+      {/* Cinematic transit landing hero */}
+      <section className="landing-hero" id="home">
+      <video
+        className="hero-video"
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="auto"
+        poster="/images/gemini-generated-hero-poster.jpg"
+        aria-hidden="true"
+        tabIndex={-1}
+      >
+        <source src="/videos/gemini_generated_video_429b205b.mp4" type="video/mp4" />
+      </video>
+      <header className="station-header hero-nav">
         <div className="brand-wrapper">
           <div className="logo-badge" title="Metro + BRTS + AMTS Interconnected">
             <span className="logo-dot metro" />
@@ -172,6 +186,13 @@ export default function App() {
             </div>
           </div>
         </div>
+
+        <nav className="landing-nav" aria-label={activeLang === 'gu' ? 'મુખ્ય નેવિગેશન' : 'Main navigation'}>
+          <a href="#home">{activeLang === 'gu' ? 'હોમ' : 'Home'}</a>
+          <a href="#station-entrance-section">{activeLang === 'gu' ? 'મુસાફરી' : 'Plan trip'}</a>
+          <a href="#hero-map-screen">{activeLang === 'gu' ? 'નેટવર્ક' : 'Network'}</a>
+          <a href="#app-footer">{activeLang === 'gu' ? 'વિગતો' : 'About'}</a>
+        </nav>
 
         <div className="header-actions">
           {/* Tunnel Offline Indicator per PRD Section 6.3 */}
@@ -222,6 +243,31 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      <div className="landing-copy">
+        <div className="landing-eyebrow"><span className="landing-eyebrow-dot" />{t('Ahmedabad, connected')}</div>
+        <h1>{t('Move smarter')}<br /><span>{t('across Ahmedabad.')}</span></h1>
+        <p>{t('Metro, Janmarg BRTS and AMTS—one clear plan for the way across your city.')}</p>
+        <div className="landing-actions">
+          <a className="landing-cta" href="#station-entrance-section">{t('Plan your journey')}<span aria-hidden="true">↗</span></a>
+          <a className="landing-secondary" href="#hero-map-screen">{t('Explore the network')}<span aria-hidden="true">↓</span></a>
+        </div>
+        <div className="landing-networks" aria-label="Transit networks">
+          <span><i className="logo-dot metro" /> Metro</span>
+          <span><i className="logo-dot brts" /> Janmarg BRTS</span>
+          <span><i className="logo-dot amts" /> AMTS</span>
+          <b>{t('One connected journey')}</b>
+        </div>
+        {selectedJourney && <div className="landing-trip-preview">
+          <span className="preview-route-mark"><i /><i /><i /></span>
+          <span className="preview-stops">{activeLang === 'gu' ? (selectedJourney.originStop.stop_name_gu || selectedJourney.originStop.stop_name) : selectedJourney.originStop.stop_name}<b>→</b>{activeLang === 'gu' ? (selectedJourney.destStop.stop_name_gu || selectedJourney.destStop.stop_name) : selectedJourney.destStop.stop_name}</span>
+          <span className="preview-divider" />
+          <span>{selectedJourney.totalTimeMinutes} {activeLang === 'gu' ? 'મિનિટ અંદાજિત' : 'min estimated'}</span>
+          <span className="preview-sample">{activeLang === 'gu' ? 'નમૂનો' : 'SAMPLE'}</span>
+        </div>}
+      </div>
+      <a className="landing-scroll-cue" href="#station-entrance-section" aria-label={t('Plan your journey')}><span /></a>
+      </section>
 
       {/* Security Status Bar (CSP, Rate Limiter, Zero Leaks) */}
       <SecurityStatusBar />
@@ -346,7 +392,7 @@ export default function App() {
       )}
 
       {/* App Footer */}
-      <footer className="app-footer">
+      <footer className="app-footer" id="app-footer">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span className="offline-pulse" style={{ background: '#10B981', boxShadow: '0 0 8px #10B981' }} />
             <span>{t('Offline-ready · Sample data')}</span>

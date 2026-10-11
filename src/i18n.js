@@ -31,6 +31,13 @@ const gu = {
   'Minimum travel time and high-speed transit': 'ઓછામાં ઓછો સમય અને ઝડપી પરિવહન',
   'Optimal trade-off of time, walking, and cost': 'સમય, ચાલવું અને ખર્ચ વચ્ચે સંતુલન',
   'Lowest overall passenger fare': 'મુસાફરીનો સૌથી ઓછો અંદાજિત ખર્ચ',
+  'Ahmedabad, connected': 'જોડાયેલું અમદાવાદ',
+  'Move smarter': 'હવે મુસાફરી કરો સમજદારીથી',
+  'across Ahmedabad.': 'આખા અમદાવાદમાં.',
+  'Metro, Janmarg BRTS and AMTS—one clear plan for the way across your city.': 'મેટ્રો, જનમાર્ગ BRTS અને AMTS—શહેરમાં મુસાફરી માટે એક સરળ આયોજન.',
+  'Plan your journey': 'તમારી મુસાફરીનું આયોજન કરો',
+  'Explore the network': 'નેટવર્ક જુઓ',
+  'One connected journey': 'એક જોડાયેલી મુસાફરી',
 }
 
 export function translate(text, language = 'en') {

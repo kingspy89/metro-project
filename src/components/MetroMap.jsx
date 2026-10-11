@@ -124,7 +124,7 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
   };
 
   const modeFilterColor = {
-    all: '#38BDF8',
+    all: '#F0832D',
     metro: '#3B82F6',
     brts: '#10B981',
     amts: '#F59E0B',
@@ -142,27 +142,14 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
   const showTransfers = filterMode === 'all' || filterMode === 'route_only';
 
   return (
-    <div className="metro-map-wrapper" style={{ position: 'relative', width: '100%', overflow: 'hidden', borderRadius: '16px', background: 'var(--bg-station)', border: '1px solid var(--border-board)' }}>
+    <div className="metro-map-wrapper">
       {/* Map Interactive Toolbar */}
-      <div style={{
-        position: 'absolute',
-        top: 14,
-        left: 14,
-        zIndex: 20,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        background: 'rgba(12, 21, 43, 0.85)',
-        backdropFilter: 'blur(8px)',
-        padding: '6px 10px',
-        borderRadius: '10px',
-        border: '1px solid var(--border-board)'
-      }}>
+      <div className="map-toolbar">
         <button
           className="map-control-btn"
           onClick={() => setZoom(prev => Math.min(2.8, prev * 1.2))}
           title="Zoom in"
-          style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: 4 }}
+          aria-label="Zoom in"
         >
           <ZoomIn size={18} />
         </button>
@@ -170,7 +157,7 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
           className="map-control-btn"
           onClick={() => setZoom(prev => Math.max(0.65, prev * 0.82))}
           title="Zoom out"
-          style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: 4 }}
+          aria-label="Zoom out"
         >
           <ZoomOut size={18} />
         </button>
@@ -178,35 +165,26 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
           className="map-control-btn"
           onClick={handleResetView}
           title="Reset View"
-          style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: 4 }}
+          aria-label="Reset map view"
         >
           <RotateCcw size={16} />
         </button>
 
-        <div style={{ width: 1, height: 18, background: 'var(--border-board)', margin: '0 4px' }} />
+        <div className="map-toolbar-divider" />
 
         {/* Network Filter Pills */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div className="map-filter-list">
           {['all', 'metro', 'brts', 'amts'].map(mode => {
             const isActive = filterMode === mode;
             const activeColor = modeFilterColor[mode];
             return (
               <button
                 key={mode}
+                className={`map-filter-btn${isActive ? ' active' : ''}`}
+                data-mode={mode}
+                aria-pressed={isActive}
                 onClick={() => setFilterMode(mode)}
-                style={{
-                  background: isActive ? activeColor : 'transparent',
-                  color: isActive ? '#FFFFFF' : 'var(--text-secondary)',
-                  border: isActive ? 'none' : '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '6px',
-                  padding: '4px 9px',
-                  fontSize: '0.74rem',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  boxShadow: isActive ? `0 0 10px ${activeColor}55` : 'none'
-                }}
+                style={isActive ? { '--filter-color': activeColor } : undefined}
               >
                 {mode === 'all' ? 'All Lines' : mode === 'metro' ? '🚇 Metro' : mode === 'brts' ? '🚌 BRTS' : '🚎 AMTS'}
               </button>
@@ -225,9 +203,6 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
         onMouseLeave={handleMouseUp}
         style={{
           cursor: isDragging ? 'grabbing' : 'grab',
-          width: '100%',
-          height: '620px',
-          overflow: 'hidden'
         }}
       >
         <svg
@@ -607,26 +582,11 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
       </div>
 
       {/* Modern Transit Map Legend (Corner Overlay) */}
-      <div style={{
-        position: 'absolute',
-        bottom: 14,
-        right: 14,
-        zIndex: 20,
-        background: 'rgba(12, 21, 43, 0.90)',
-        backdropFilter: 'blur(10px)',
-        padding: '10px 14px',
-        borderRadius: '12px',
-        border: '1px solid var(--border-board)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 6,
-        fontSize: '0.76rem',
-        boxShadow: 'var(--shadow-subtle)'
-      }}>
-        <div style={{ fontWeight: 800, color: 'var(--text-bright)', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 2 }}>
+      <div className="map-legend">
+        <div className="map-legend-title">
           Ahmedabad Transit Corridors
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px', alignItems: 'center' }}>
+        <div className="map-legend-grid">
           <span style={{ width: 14, height: 4, background: '#3B82F6', borderRadius: 2 }} />
           <span>Metro East-West (Thaltej ➔ Vastral)</span>
 

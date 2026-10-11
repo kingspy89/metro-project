@@ -1,112 +1,91 @@
-# 🚌 YatraOne — Ahmedabad Transit, Connected
+<div align="center">
 
-> **One journey. Three networks.** Explore Ahmedabad's Metro, Janmarg BRTS, and AMTS connections in one interactive journey planner.
+# YatraOne
+### Ahmedabad transit, connected.
 
-<p align="center">
-  <strong>🚆 Metro</strong> &nbsp; · &nbsp;
-  <strong>🚌 BRTS</strong> &nbsp; · &nbsp;
-  <strong>🚍 AMTS</strong> &nbsp; · &nbsp;
-  <strong>🧭 Multimodal routing</strong>
+**One journey. Three networks.** Plan across Metro, Janmarg BRTS, and AMTS in one interactive city transit experience.
+
+<img src="public/images/gemini-generated-hero-poster.jpg" alt="Ahmedabad Metro at sunset above the Sabarmati River" width="100%" />
+
+<p>
+  <img alt="React 19" src="https://img.shields.io/badge/React-19-FF842E?logo=react&logoColor=white" />
+  <img alt="Vite 8" src="https://img.shields.io/badge/Vite-8-29231F?logo=vite&logoColor=FF842E" />
+  <img alt="English and Gujarati" src="https://img.shields.io/badge/English-ગુજરાતી-D96113" />
+  <img alt="Hackathon prototype" src="https://img.shields.io/badge/Prototype-Hackathon-FF842E" />
 </p>
 
-<p align="center">
-  <img alt="React" src="https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white">
-  <img alt="Vite" src="https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white">
-  <img alt="Status" src="https://img.shields.io/badge/status-hackathon%20prototype-orange">
-  <img alt="Language" src="https://img.shields.io/badge/language-English%20%2B%20Gujarati-1F6FEB">
-</p>
+[Explore the app](#run-locally) · [See how routing works](#route-finding) · [Read data notes](#fares-and-data-honesty) · [View the roadmap](#roadmap)
 
-YatraOne turns separate transit networks into one place to explore routes, transfers, and journey options. It combines an interactive schematic map with a browser-based route planner and keeps estimated data clearly labeled.
+</div>
 
-## ✨ What you can do
+---
 
-- Find connections between stops in the bundled Ahmedabad network.
-- Compare **Fastest**, **Cheapest**, and **Balanced** sample itineraries, ranked by each option's objective score.
-- Explore the network map with zoom, pan, mode filters, and clickable stop details.
-- Follow long selected route legs with mode-colored, full-length map highlights.
-- Check a stop in Google Maps from its detail panel.
-- Read bilingual English and Gujarati stop labels.
-- Switch the main planner, itinerary steps, fare panel, stop details, and AI assistant between English and Gujarati.
-- Follow transfer guidance and a step-by-step journey timeline.
-- Open official Metro, BRTS, and AMTS fare pages from the estimate panel.
-- Ask the AI trip assistant to explain the selected itinerary and look up nearby bus stops with Google Maps grounding.
-- Try the prototype offline after the app has loaded.
+## At a glance
 
-## 🤖 AI trip assistant (optional)
+| | |
+| --- | --- |
+| **Purpose** | Plan and explore multimodal trips across Ahmedabad transit networks |
+| **Modes** | Ahmedabad Metro, Janmarg BRTS, and AMTS |
+| **Languages** | English and Gujarati |
+| **Route options** | Fastest, Cheapest, and Balanced |
+| **App** | React 19 + Vite 8 |
+| **Data status** | Local prototype network; fares and bus coverage are not live |
 
-The trip assistant runs through a local Vite server endpoint. It receives the selected trip's stop names, modes, and clearly labeled prototype estimates; Google Maps Grounding can provide linked stop and place references. The Gemini key stays server-side and is not included in the browser bundle.
+YatraOne brings transit routes, transfer guidance, a schematic network map, and journey estimates together. It is designed as a clear, visual prototype for exploring how Ahmedabad's separate networks can connect.
 
-The header language control switches between English and Gujarati. Station names use Gujarati dataset labels where available; operator and corridor names remain in their commonly used forms.
+## A transit experience built for the city
 
-To enable it, create `.env.local` in the project root (this filename is ignored by Git) and add:
+- **Plan across modes.** Choose stops and compare Fastest, Cheapest, and Balanced sample journeys.
+- **Explore the network.** Use the high-contrast dark map canvas, clear mode filters and route legend; zoom, pan, and open stop details in either app theme.
+- **Follow the route.** See selected legs highlighted by transit mode, with step-by-step transfer guidance.
+- **Use your language.** Switch planner details, stop names, journey steps, fares, and assistant between English and Gujarati where translations are available.
+- **See the city in motion.** The landing page uses a muted, looping 10-second, 720p video at [`public/videos/gemini_generated_video_429b205b.mp4`](public/videos/gemini_generated_video_429b205b.mp4), with a still poster for reduced-motion settings.
+- **Keep the controls legible.** A transparent, blurred glass header and boxed navigation sit over the video with warm orange highlights.
+- **Check the source.** Stop details link to Google Maps searches; fare estimates link to operator fare pages.
+- **Try it offline.** The core planner and bundled data work locally after the app loads.
 
-```dotenv
-GEMINI_API_KEY=your-gemini-api-key
-# Optional: override the model used by the assistant
-# GEMINI_MODEL=gemini-3.5-flash
-```
+## Route finding
 
-Restart `npm run dev` after saving the file. The feature needs an internet connection and a Gemini API key with Google Maps Grounding access. Google may apply usage limits or charges depending on the account and current plan. Answers are AI-generated; verify transit service, fares, and schedules with the operators. When Maps grounding sources are returned, YatraOne displays their title, link, and Google Maps attribution beside the answer.
+YatraOne models stops and transit modes as a graph. It uses **transfer-aware Dijkstra search** over stop-and-mode states. Search labels track transfers used so that a promising route with fewer changes can remain a candidate alongside a shorter path.
 
-## 🗺️ A network view
+| Option | What it favors |
+| --- | --- |
+| **Fastest** | Ride time plus estimated waiting, walking, and transfer time |
+| **Cheapest** | Bundled sample fares, with time as a small tie-breaker |
+| **Balanced** | Normalized time and sample fare, with transfer and walking penalties |
 
-The planner treats each stop and travel mode as part of a graph. Solid colored paths show the referenced Metro sequences; bus corridors are currently simplified prototype coverage.
+The Balanced score is additive, so the shortest-path search can compare partial paths consistently. Fare-based rankings depend on prototype fare values until verified fare data is integrated.
+
+### Network illustration
+
+The map combines referenced Metro station sequences with simplified prototype bus corridors. This diagram is intentionally schematic: it omits stops for readability and does not represent geographic scale or complete live coverage.
 
 ```mermaid
 flowchart LR
-  subgraph BLUE["🔵 Metro · East–West"]
+  subgraph EW["Metro · East–West"]
     direction LR
     TG["Thaltej Gam"] --- T["Thaltej"] --- DD["Doordarshan Kendra"] --- GU["Gujarat University"] --- ST["Stadium"] --- OHC(("Old High Court")) --- SH["Shahpur"] --- GK["Gheekanta"] --- K["Kalupur"] --- KE["Kankaria East"] --- VG["Vastral Gam"]
   end
-
-  subgraph RED["🔴 Metro · North–South"]
+  subgraph NS["Metro · North–South"]
     direction TB
     APMC["APMC"] --- JP["Jivraj Park"] --- PAL["Paldi"] --- GAND["Gandhigram"] --- OHC --- USM["Usmanpura"] --- VAD["Vadaj"] --- MOT(("Motera Stadium"))
   end
-
-  subgraph YELLOW["🟡 Metro · Gandhinagar"]
+  subgraph GIFT["Metro · Gandhinagar / GIFT"]
     direction LR
     MM["Mahatma Mandir"] --- AK["Akshardham"] --- SEC["Sector 1"] --- GNLU(("GNLU")) --- KG["Koba Gam"] --- MOT
+    GNLU --- PDPU["PDPU"] --- GC["GIFT City"]
   end
-
-  subgraph VIOLET["🟣 Metro · GIFT City"]
-    direction LR
-    GNLU --- PDPU["PDPU"] --- GIFT["GIFT City"]
-  end
-
   OHC -. "walk transfer" .- BR["BRTS sample corridor"]
   K -. "walk transfer" .- AM["AMTS sample stops"]
-
-  classDef blue fill:#153a70,stroke:#60a5fa,color:#fff
-  classDef red fill:#6b2020,stroke:#f87171,color:#fff
-  classDef yellow fill:#5b4a12,stroke:#facc15,color:#fff
-  classDef violet fill:#40236e,stroke:#c4b5fd,color:#fff
-  classDef bus fill:#123c34,stroke:#34d399,color:#fff
-  class TG,T,DD,GU,ST,SH,GK,K,KE,VG blue
-  class APMC,JP,PAL,GAND,USM,VAD red
-  class MM,AK,SEC,KG yellow
-  class PDPU,GIFT violet
+  classDef metro fill:#38271B,stroke:#FF842E,color:#FFF7F0
+  classDef bus fill:#26221E,stroke:#FFC18F,color:#FFF7F0
+  classDef interchange fill:#5A3219,stroke:#FFB274,color:#fff
+  class TG,T,DD,GU,ST,SH,GK,K,KE,VG,APMC,JP,PAL,GAND,USM,VAD,MM,AK,SEC,KG,PDPU,GC metro
+  class OHC,MOT,GNLU interchange
   class BR,AM bus
-  style OHC fill:#123a5a,stroke:#fff,color:#fff
-  style MOT fill:#123a5a,stroke:#fff,color:#fff
-  style GNLU fill:#123a5a,stroke:#fff,color:#fff
 ```
 
-<sub>Diagram is a simplified route illustration. It omits many stations for readability. It does not claim geographic scale or full live service coverage.</sub>
-
-## 🧠 How route ranking works
-
-YatraOne uses **transfer-aware Dijkstra search** over stop-and-mode states. Search labels also track transfers used, so a route with fewer transfers can remain a candidate even if another path reaches the same stop at lower cost.
-
-| Ranking | What it prioritizes |
-| --- | --- |
-| **Fastest** | Ride time, estimated wait, walking, and transfer time |
-| **Cheapest** | Bundled sample fares, with time used as a small tie-breaker |
-| **Balanced** | Normalized time and sample fare, plus transfer and walking penalties |
-
-The balanced score is additive, so the shortest-path algorithm can compare paths consistently. All fare-based ranking still depends on prototype fare values until official fare data is integrated.
-
-## 🚀 Run it locally
+## Run locally
 
 **Requirements:** Node.js and npm.
 
@@ -115,62 +94,66 @@ npm install
 npm run dev
 ```
 
-Open the local URL shown by Vite (usually [http://localhost:5173](http://localhost:5173)).
+Open the local URL printed by Vite (usually [http://localhost:5173](http://localhost:5173)). Create a production build with:
 
 ```bash
 npm run build
 ```
 
-## 🧰 Built with
+## Optional: AI trip assistant
 
-- **React 19** — interactive app and route/map components
-- **Vite 8** — local development and production builds
-- **JavaScript + JSON** — client-side graph search and bundled network data
-- **Lucide React** — interface icons
-- **SVG** — interactive schematic transit map
+The assistant runs through a local Vite server endpoint. It receives the selected trip's stop names, modes, and clearly labeled prototype estimates. When Google Maps Grounding is enabled, answers can include linked stop and place references. The Gemini key stays on the server and is not included in the browser bundle.
 
-## 💸 Fare and data transparency
+To enable it, create `.env.local` in the project root (Git ignores this file):
 
-**Are fares real? No.** The current fare numbers are illustrative values in the prototype dataset. The previously invented ₹5 multimodal discount is disabled. The estimate panel links to the operators' live fare tools:
+```dotenv
+GEMINI_API_KEY=your-gemini-api-key
+# Optional: choose a supported model
+# GEMINI_MODEL=gemini-3.5-flash
+```
+
+Restart the development server after saving the file. The assistant needs an internet connection and a Gemini API key with Google Maps Grounding access. Google may apply usage limits or charges based on the account and current plan. Answers are AI-generated; verify transit service, fares, and schedules with the operators. When grounding sources are returned, YatraOne shows their titles, links, and Google Maps attribution.
+
+## Fares and data honesty
+
+> **Are the fares real? No.** Current fare values are illustrative prototype data. The previously invented ₹5 multimodal discount is disabled. The estimate panel links to operator fare tools for checking current prices.
 
 - [GMRC Metro route and fare planner](https://www.gujaratmetrorail.com/ahmedabad/route-and-fares/)
 - [Ahmedabad BRTS fare checker](https://www.ahmedabadbrts.org/en/information/fare-chart/)
 - [AMTS ticketing and fare page](https://www.amts.co.in/ticketing/)
 
-Google Maps links open a search for a selected stop; they do not import Google route, bus number, or arrival data into YatraOne. The repository contains no Google Maps Platform API key.
+Google Maps links search for the selected stop. YatraOne does **not** import live Google route, bus number, timetable, or arrival data; the repository contains no Google Maps Platform API key.
 
-### Current data status
-
-| Network | What is represented | Limitation |
+| Network | Included in this prototype | Current limitation |
 | --- | --- | --- |
-| Metro | Station sequences and graph links based on the referenced station directory | Coordinates, travel times, and fare edges are not fully validated |
-| BRTS | A few sample corridors and stops | Not a complete stop inventory or route feed |
-| AMTS | Prototype stops and links | Not a current, complete route-by-route feed |
+| **Metro** | Station sequences and graph links based on the referenced station directory | Coordinates, travel times, and fare edges need validation |
+| **BRTS** | A small set of sample corridors and stops | Not a complete stop inventory or route feed |
+| **AMTS** | Prototype stops and links | Not a current, complete route-by-route feed |
 
-The app is a **hackathon prototype**, not a live passenger information service. Verify fares, service status, and route details with operators before travel. Bundled records are marked `prototype_unverified` where the source field is present.
+YatraOne is a **hackathon prototype**, not a live passenger information service. Verify fares, service status, and route details with transit operators before travel. Bundled records are marked `prototype_unverified` where the source field is present.
 
 ### References
 
 - [GMRC Ahmedabad Metro](https://www.gujaratmetrorail.com/ahmedabad/route-and-fares/)
 - [Ahmedabad Janmarg / BRTS](https://www.ahmedabadbrts.org/en/plan/)
 - [AMTS](https://www.amts.co.in/)
-- [Google Routes API — transit routes](https://developers.google.com/maps/documentation/routes/transit-route)
+- [Google Routes API: transit routes](https://developers.google.com/maps/documentation/routes/transit-route)
 - [Google Transit stop and station guidance](https://support.google.com/transitpartners/answer/6377423?hl=en)
 
-## 🛣️ Roadmap
+## Roadmap
 
-Future feature requests and implementation plans belong here so the README stays the project’s shared roadmap.
+Keep future feature requests and implementation plans here so the README remains the shared project roadmap.
 
-- [ ] Replace prototype coordinates with validated station/stand coordinates and real route shapes.
+- [ ] Replace prototype coordinates with validated station and stand coordinates and real route shapes.
 - [ ] Import current BRTS and AMTS route numbers and ordered stops in both directions.
-- [ ] Add verified bus stand details: route numbers, nearby landmarks, platform/bay, accessibility, and operator links.
+- [ ] Add verified bus stand details: route numbers, nearby landmarks, platform or bay, accessibility, and operator links.
 - [ ] Add official fare lookups or a dated, verified fare table for each network.
 - [ ] Add service calendars, timetables, live arrivals, and clear data freshness labels.
-- [ ] Verify walking transfers between Metro and bus stands.
-- [ ] Evaluate a Google Maps Platform integration with a restricted key, billing and attribution requirements documented.
+- [ ] Verify walking transfers between Metro stations and bus stands.
+- [ ] Evaluate Google Maps Platform integration, including restricted keys, billing, and attribution.
 - [ ] Add a geographic map mode alongside the schematic network.
 
-## 🧱 Project structure
+## Project structure
 
 ```text
 src/
@@ -178,6 +161,15 @@ src/
 ├── data/         # Stops, lines, sample connections, transfers, configuration
 ├── engine/       # Graph search, fare estimate, startup validation
 └── security/     # Input sanitization and search rate limiting
+public/
+├── images/       # Hero poster artwork
+└── videos/       # Looping landing-page video
 ```
-<p align="center"><strong>YatraOne — Make the next connection easier to see.</strong></p>
 
+---
+
+<div align="center">
+
+**YatraOne** · Make the next connection easier to see.
+
+</div>
