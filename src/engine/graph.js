@@ -5,7 +5,11 @@
  */
 
 import stopsData from '../data/stops.json' with { type: 'json' };
-import connectionsData from '../data/connections.json' with { type: 'json' };
+import metroConnections from '../data/connections.json' with { type: 'json' };
+import gtfsBusStopIds from '../data/gtfs_bus_stop_ids.json' with { type: 'json' };
+import gtfsBusStopAreaIndexes from '../data/gtfs_bus_stop_area_indexes.json' with { type: 'json' };
+import gtfsBusEdges from '../data/gtfs_bus_edges.json' with { type: 'json' };
+import brtsFareData from '../data/gtfs_brts_adult_fares.json' with { type: 'json' };
 import transfersData from '../data/transfers.json' with { type: 'json' };
 import configData from '../data/config.json' with { type: 'json' };
 import linesData from '../data/lines.json' with { type: 'json' };
@@ -14,6 +18,55 @@ import { calculateUnifiedFare } from './fare.js';
 // Index lookups
 export const stopsById = new Map(stopsData.map(s => [s.stop_id, s]));
 export const linesById = new Map(linesData.map(l => [l.line_id, l]));
+const gtfsBusLines = linesData.filter(line => line.source === 'community_gtfs');
+const gtfsBusStopIndex = new Map(gtfsBusStopIds.map((stopId, index) => [stopId, index]));
+const getBrtsAdultFare = (fromStopId, toStopId) => {
+  const fromIndex = gtfsBusStopIndex.get(fromStopId);
+  const toIndex = gtfsBusStopIndex.get(toStopId);
+  if (fromIndex == null || toIndex == null) return null;
+  const fromArea = gtfsBusStopAreaIndexes[fromIndex];
+  const toArea = gtfsBusStopAreaIndexes[toIndex];
+  if (fromArea < 0 || toArea < 0) return null;
+  return brtsFareData.adult_fares[fromArea]?.[toArea] ?? null;
+};
+const predictBusFare = (mode, fromStopId, toStopId) => {
+  const from = stopsById.get(fromStopId);
+  const to = stopsById.get(toStopId);
+  if (!from || !to) return null;
+  const radians = Math.PI / 180;
+  const lat1 = from.latitude * radians;
+  const lat2 = to.latitude * radians;
+  const dLat = lat2 - lat1;
+  const dLon = (to.longitude - from.longitude) * radians;
+  const haversine = 2 * 6371 * Math.asin(Math.sqrt(Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2));
+  const estimatedRouteKm = haversine * 1.35;
+  const ratePerKm = mode === 'brts' ? 1.8 : 1.5;
+  return Math.max(5, Math.round(5 + estimatedRouteKm * ratePerKm));
+};
+const routeLabel = (state, transfers, lineId, mode, boardingStop) => {
+  const stopIndex = boardingStop == null ? null : gtfsBusStopIndex.get(boardingStop);
+  const fareArea = mode === 'brts' && stopIndex != null ? gtfsBusStopAreaIndexes[stopIndex] : '';
+  return `${state}::${transfers}::${lineId || ''}::${fareArea}`;
+};
+export const connectionsData = [
+  ...metroConnections,
+  ...gtfsBusEdges.map(([fromIndex, toIndex, lineIndex, durationTenths, distanceHundredths]) => {
+    const line = gtfsBusLines[lineIndex];
+    return {
+      from_stop_id: gtfsBusStopIds[fromIndex],
+      to_stop_id: gtfsBusStopIds[toIndex],
+      transport_mode: line.mode,
+      line_id: line.line_id,
+      duration_minutes: durationTenths / 10,
+      fare: null,
+      fare_known: false,
+      distance_km: distanceHundredths / 100,
+      route_short_name: line.route_short_name,
+      route_long_name: line.route_long_name,
+      source: 'community_gtfs'
+    };
+  })
+];
 
 /**
  * Builds adjacency list for multimodal transitions
@@ -39,8 +92,11 @@ export function buildTransitGraph() {
       toStop: conn.to_stop_id,
       mode: conn.transport_mode,
       lineId: conn.line_id,
+      route_short_name: conn.route_short_name || null,
+      route_long_name: conn.route_long_name || null,
       duration: Number(conn.duration_minutes),
-      fare: Number(conn.fare),
+      fare: conn.fare == null || conn.fare === '' || !Number.isFinite(Number(conn.fare)) ? null : Number(conn.fare),
+      fareKnown: conn.fare_known !== false && conn.fare != null && conn.fare !== '' && Number.isFinite(Number(conn.fare)),
       distanceKm: Number(conn.distance_km || 1.5)
     });
   }
@@ -109,6 +165,48 @@ export function buildTransitGraph() {
 
 const graphAdjacency = buildTransitGraph();
 
+// Dijkstra's open set. A binary min-heap avoids sorting the whole queue after
+// each relaxation, which matters as the bus network grows.
+class MinHeap {
+  items = [];
+
+  get size() { return this.items.length; }
+
+  push(item) {
+    const items = this.items;
+    items.push(item);
+    let index = items.length - 1;
+    while (index > 0) {
+      const parent = Math.floor((index - 1) / 2);
+      if ((items[parent].priority ?? items[parent].cost) <= (item.priority ?? item.cost)) break;
+      items[index] = items[parent];
+      index = parent;
+    }
+    items[index] = item;
+  }
+
+  pop() {
+    const items = this.items;
+    if (items.length === 0) return undefined;
+    const first = items[0];
+    const last = items.pop();
+    if (items.length > 0) {
+      let index = 0;
+      while (true) {
+        const left = index * 2 + 1;
+        const right = left + 1;
+        if (left >= items.length) break;
+        const child = right < items.length && (items[right].priority ?? items[right].cost) < (items[left].priority ?? items[left].cost) ? right : left;
+        if ((items[child].priority ?? items[child].cost) >= (last.priority ?? last.cost)) break;
+        items[index] = items[child];
+        index = child;
+      }
+      items[index] = last;
+    }
+    return first;
+  }
+}
+
 /**
  * Finds routes using State-Graph Dijkstra for a given objective.
  * @param {string} originStopId 
@@ -127,18 +225,30 @@ export function findPathByObjective(originStopId, destinationStopId, objective =
 
   // Possible starting states at origin stop
   // For origin, the passenger can board whatever mode serves this stop
-  const possibleStartModes = [originStop.transport_mode];
-  // Also check if any connection leaves this stop with another mode
-  for (const conn of connectionsData) {
-    if (conn.from_stop_id === originStopId && !possibleStartModes.includes(conn.transport_mode)) {
-      possibleStartModes.push(conn.transport_mode);
-    }
+  const possibleStartModes = new Set([originStop.transport_mode]);
+  // Include any additional mode state attached to this stop without rescanning all connections.
+  const originPrefix = `${originStopId}::`;
+  for (const state of graphAdjacency.keys()) {
+    if (state.startsWith(originPrefix)) possibleStartModes.add(state.slice(originPrefix.length));
   }
 
   // Label-setting Dijkstra: retain separate labels for each transfer count so
   // a cheap/high-transfer arrival cannot erase a viable low-transfer arrival.
-  const queue = [];
+  const queue = new MinHeap();
   const minCost = new Map();
+  const destination = stopsById.get(destinationStopId);
+  const lowerBound = stopId => {
+    const stop = stopsById.get(stopId);
+    if (!stop || !destination) return 0;
+    const radians = Math.PI / 180;
+    const dLat = (destination.latitude - stop.latitude) * radians;
+    const dLon = (destination.longitude - stop.longitude) * radians;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(stop.latitude * radians) * Math.cos(destination.latitude * radians) * Math.sin(dLon / 2) ** 2;
+    const km = 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+    if (objective === 'fastest') return km * 0.4;
+    if (objective === 'cheapest') return km * 0.5;
+    return km * 0.004;
+  };
 
   for (const startMode of possibleStartModes) {
     const startState = `${originStopId}::${startMode}`;
@@ -147,6 +257,8 @@ export function findPathByObjective(originStopId, destinationStopId, objective =
       state: startState,
       stopId: originStopId,
       currentMode: startMode,
+      currentLineId: null,
+      currentBoardingStop: null,
       cost: objective === 'fastest' ? initialWait
         : objective === 'cheapest' ? initialWait * 0.001
           : (0.4 * initialWait / 60),
@@ -160,19 +272,21 @@ export function findPathByObjective(originStopId, destinationStopId, objective =
       transfers: 0,
       path: []
     };
+    initialRecord.priority = initialRecord.cost + lowerBound(originStopId);
     queue.push(initialRecord);
-    minCost.set(`${startState}::0`, initialRecord.cost);
+    minCost.set(routeLabel(startState, 0, null, startMode, null), initialRecord.cost);
   }
 
   let bestDestRecord = null;
+  let expandedLabels = 0;
+  const maxExpandedLabels = 75000;
 
-  while (queue.length > 0) {
-    // Pick lowest cost
-    queue.sort((a, b) => a.cost - b.cost);
-    const curr = queue.shift();
+  while (queue.size > 0 && expandedLabels < maxExpandedLabels) {
+    expandedLabels++;
+    const curr = queue.pop();
 
     const [currStopId] = curr.state.split('::');
-    const currLabel = `${curr.state}::${curr.transfers}`;
+    const currLabel = routeLabel(curr.state, curr.transfers, curr.currentLineId, curr.currentMode, curr.currentBoardingStop);
 
     if (curr.cost > (minCost.get(currLabel) ?? Infinity)) continue;
 
@@ -193,7 +307,8 @@ export function findPathByObjective(originStopId, destinationStopId, objective =
       const nextMode = edge.mode || edge.toMode;
       const nextState = edge.toState;
 
-      const isTransfer = edge.type === 'transfer' || (curr.currentMode !== nextMode);
+      const routeChange = edge.type === 'ride' && curr.currentLineId != null && curr.currentLineId !== edge.lineId;
+      const isTransfer = edge.type === 'transfer' || (curr.currentMode !== nextMode) || routeChange;
       const newTransfers = curr.transfers + (isTransfer ? 1 : 0);
       if (newTransfers > configData.max_transfers) continue;
 
@@ -203,14 +318,45 @@ export function findPathByObjective(originStopId, destinationStopId, objective =
       const legInVehicle = edge.type === 'ride' ? edge.duration : 0;
       const legWalkTime = edge.type === 'transfer' ? edge.duration : 0;
       const legWalkDist = edge.type === 'transfer' ? (edge.walkingDistanceM || 0) : 0;
-      const legFare = edge.fare || 0;
+      const legFare = edge.fareKnown ? edge.fare : 0;
+      let closedSegmentFare = 0;
+      let hasUnknownClosedFare = false;
+      const closesCurrentRide = curr.currentLineId != null && (edge.type === 'transfer' || routeChange);
+      if (closesCurrentRide && curr.currentMode === 'brts') {
+        closedSegmentFare = getBrtsAdultFare(curr.currentBoardingStop, currStopId);
+        if (closedSegmentFare == null) closedSegmentFare = predictBusFare('brts', curr.currentBoardingStop, currStopId);
+        hasUnknownClosedFare = closedSegmentFare == null;
+        closedSegmentFare ||= 0;
+      } else if (closesCurrentRide && curr.currentMode === 'amts') {
+        closedSegmentFare = predictBusFare('amts', curr.currentBoardingStop, currStopId);
+        hasUnknownClosedFare = closedSegmentFare == null;
+        closedSegmentFare ||= 0;
+      }
+
+      const nextBoardingStop = edge.type === 'ride'
+        ? curr.currentLineId === edge.lineId ? curr.currentBoardingStop : edge.fromStop
+        : null;
+      if (edge.type === 'ride' && edge.toStop === destinationStopId) {
+        if (edge.mode === 'brts') {
+          const finalFare = getBrtsAdultFare(nextBoardingStop, edge.toStop) ?? predictBusFare('brts', nextBoardingStop, edge.toStop);
+          if (finalFare == null) hasUnknownClosedFare = true;
+          else closedSegmentFare += finalFare;
+        } else if (edge.mode === 'amts') {
+          const finalFare = predictBusFare('amts', nextBoardingStop, edge.toStop);
+          if (finalFare == null) hasUnknownClosedFare = true;
+          else closedSegmentFare += finalFare;
+        }
+      }
+      // An incomplete fare is never treated as zero when ranking cheapest routes.
+      if (objective === 'cheapest' && hasUnknownClosedFare) continue;
+      const stepFare = legFare + closedSegmentFare;
       const legDistanceKm = edge.distanceKm || 0;
 
       const newTotalTime = curr.totalTime + edge.duration + transferPenalty + boardWait;
       const newInVehicle = curr.inVehicleTime + legInVehicle;
       const newWalkingTime = curr.walkingTime + legWalkTime;
       const newWaitTime = curr.waitWaitTime + boardWait;
-      const newFare = curr.totalFare + legFare;
+      const newFare = curr.totalFare + stepFare;
       const newDistKm = curr.totalDistanceKm + legDistanceKm;
       const newWalkDistM = curr.walkingDistanceM + legWalkDist;
 
@@ -220,11 +366,12 @@ export function findPathByObjective(originStopId, destinationStopId, objective =
       const stepCost = objective === 'fastest'
         ? elapsedDelta
         : objective === 'cheapest'
-          ? legFare + (elapsedDelta * 0.001)
-          : (0.4 * elapsedDelta / 60) + (0.4 * legFare / 35)
+          ? stepFare + (elapsedDelta * 0.001)
+          : (0.4 * elapsedDelta / 60) + (0.4 * stepFare / 35)
             + (isTransfer ? 0.15 : 0) + (0.05 * legWalkDist / 500);
       const nextCost = curr.cost + stepCost;
-      const nextLabel = `${nextState}::${newTransfers}`;
+      const nextLineId = edge.type === 'ride' ? edge.lineId : null;
+      const nextLabel = routeLabel(nextState, newTransfers, nextLineId, nextMode, nextBoardingStop);
 
       if (!minCost.has(nextLabel) || nextCost < minCost.get(nextLabel)) {
         minCost.set(nextLabel, nextCost);
@@ -237,7 +384,10 @@ export function findPathByObjective(originStopId, destinationStopId, objective =
           state: nextState,
           stopId: nextStopId,
           currentMode: nextMode,
+          currentLineId: nextLineId,
+          currentBoardingStop: nextBoardingStop,
           cost: nextCost,
+          priority: nextCost + lowerBound(nextStopId),
           totalTime: newTotalTime,
           inVehicleTime: newInVehicle,
           walkingTime: newWalkingTime,
@@ -264,6 +414,24 @@ function formatItinerary(record, originStop, destStop) {
   const legs = [];
   let currentRideLeg = null;
 
+  const finalizeRide = leg => {
+    if (!leg) return leg;
+    if (leg.mode === 'brts') {
+      const actualFare = getBrtsAdultFare(leg.fromStop, leg.toStop);
+      const fare = actualFare ?? predictBusFare('brts', leg.fromStop, leg.toStop);
+      leg.fare = fare;
+      leg.fareKnown = actualFare != null;
+      leg.fareEstimated = actualFare == null && fare != null;
+      leg.fareSource = actualFare != null ? 'community_gtfs_adult_area_fare' : leg.fareEstimated ? 'distance_prediction' : null;
+    } else if (leg.mode === 'amts') {
+      leg.fare = predictBusFare('amts', leg.fromStop, leg.toStop);
+      leg.fareKnown = false;
+      leg.fareEstimated = leg.fare != null;
+      leg.fareSource = leg.fareEstimated ? 'distance_prediction' : null;
+    }
+    return leg;
+  };
+
   for (let i = 0; i < record.path.length; i++) {
     const item = record.path[i];
 
@@ -274,10 +442,29 @@ function formatItinerary(record, originStop, destStop) {
         currentRideLeg.stopCount += 1;
         currentRideLeg.intermediateStops.push(item.fromStop);
         currentRideLeg.durationMinutes += item.duration;
-        currentRideLeg.fare += item.fare;
+        if (!item.fareKnown) {
+          currentRideLeg.fare = null;
+          currentRideLeg.fareKnown = false;
+        } else if (currentRideLeg.fareKnown) currentRideLeg.fare += item.fare;
         currentRideLeg.distanceKm += item.distanceKm;
       } else {
-        if (currentRideLeg) legs.push(currentRideLeg);
+        if (currentRideLeg) {
+          legs.push(finalizeRide(currentRideLeg));
+          if (currentRideLeg.mode === item.mode && currentRideLeg.toStop === item.fromStop) {
+            legs.push({
+              type: 'transfer',
+              fromStop: item.fromStop,
+              toStop: item.fromStop,
+              fromMode: item.mode,
+              toMode: item.mode,
+              walkingDistanceM: 0,
+              durationMinutes: (item.boardWait || 0) + (item.transferPenalty || 0),
+              fare: 0,
+              isRouteChange: true,
+              routeShortName: item.route_short_name || null
+            });
+          }
+        }
         currentRideLeg = {
           type: 'ride',
           mode: item.mode,
@@ -287,13 +474,16 @@ function formatItinerary(record, originStop, destStop) {
           stopCount: 1,
           intermediateStops: [],
           durationMinutes: item.duration,
-          fare: item.fare,
+          fare: item.fareKnown ? item.fare : null,
+          fareKnown: item.fareKnown,
+          routeShortName: item.route_short_name || null,
+          routeLongName: item.route_long_name || null,
           distanceKm: item.distanceKm
         };
       }
     } else if (item.type === 'transfer') {
       if (currentRideLeg) {
-        legs.push(currentRideLeg);
+        legs.push(finalizeRide(currentRideLeg));
         currentRideLeg = null;
       }
       legs.push({
@@ -303,7 +493,7 @@ function formatItinerary(record, originStop, destStop) {
         fromMode: item.fromMode,
         toMode: item.toMode,
         walkingDistanceM: item.walkingDistanceM,
-        durationMinutes: item.duration,
+        durationMinutes: item.duration + (item.boardWait || 0) + (item.transferPenalty || 0),
         fare: 0,
         isLongWalk: (item.walkingDistanceM || 0) >= configData.long_walk_threshold_m
       });
@@ -311,13 +501,13 @@ function formatItinerary(record, originStop, destStop) {
   }
 
   if (currentRideLeg) {
-    legs.push(currentRideLeg);
+    legs.push(finalizeRide(currentRideLeg));
   }
 
   // Calculate operator fares
   const operatorFares = legs
     .filter(l => l.type === 'ride')
-    .map(l => ({ operator: l.mode, fare: l.fare }));
+    .map(l => ({ operator: l.mode, fare: l.fareKnown ? l.fare : null, estimate: l.fareEstimated ? l.fare : null }));
 
   const fareBreakdown = calculateUnifiedFare(operatorFares, configData.unified_discount);
 
@@ -336,7 +526,7 @@ function formatItinerary(record, originStop, destStop) {
     transfersCount: record.transfers,
     objectiveScore: record.cost,
     balancedScore: (0.4 * record.totalTime / 60)
-      + (0.4 * fareBreakdown.totalStandalone / 35)
+      + (0.4 * fareBreakdown.estimatedTotal / 35)
       + (0.15 * record.transfers)
       + (0.05 * record.walkingDistanceM / 500),
     modesUsed,
@@ -364,7 +554,7 @@ export function generateCandidateJourneys(originStopId, destStopId) {
   const objectives = [
     { key: 'fastest', label: 'FASTEST', reason: 'Minimum travel time and high-speed transit' },
     { key: 'balanced', label: 'BALANCED', reason: 'Optimal trade-off of time, walking, and cost' },
-    { key: 'cheapest', label: 'CHEAPEST', reason: 'Lowest overall passenger fare' }
+    { key: 'cheapest', label: 'LOWEST ESTIMATED FARE', reason: 'Lowest estimate using known fares and distance-based bus predictions' }
   ];
 
   for (const obj of objectives) {

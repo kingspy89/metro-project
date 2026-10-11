@@ -7,11 +7,10 @@
  * 4. Largest-remainder 100-test audit
  */
 
-import stopsData from '../data/stops.json' with { type: 'json' };
-import connectionsData from '../data/connections.json' with { type: 'json' };
 import transfersData from '../data/transfers.json' with { type: 'json' };
+import busMetadata from '../data/gtfs_metadata.json' with { type: 'json' };
 import { runLargestRemainderAudit } from './fare.js';
-import { generateCandidateJourneys, stopsById } from './graph.js';
+import { connectionsData, generateCandidateJourneys, stopsById } from './graph.js';
 
 export function runStartupValidation() {
   const issues = [];
@@ -25,9 +24,7 @@ export function runStartupValidation() {
     if (!stopsById.has(conn.to_stop_id)) {
       issues.push(`Connection references invalid to_stop_id: ${conn.to_stop_id}`);
     }
-    if (conn.fare == null || conn.duration_minutes == null) {
-      warnings.push(`Connection ${conn.from_stop_id}->${conn.to_stop_id} missing fare or duration`);
-    }
+    if (conn.duration_minutes == null) warnings.push(`Connection ${conn.from_stop_id}->${conn.to_stop_id} missing duration`);
   }
 
   // 2. Verify Transfer Symmetry
@@ -39,14 +36,16 @@ export function runStartupValidation() {
     }
   }
 
-  // 3. Verify Seeded 3-Mode Metro-BRTS-AMTS Journey
-  // Test Thaltej (M_EW_02) to Kankaria Lake (A_KANKARIA)
-  const seededSearch = generateCandidateJourneys('M_EW_02', 'A_KANKARIA');
-  const hasThreeModeRoute = seededSearch.journeys.some(j => j.isThreeModeTrip);
-
-  if (!hasThreeModeRoute) {
-    issues.push("CRITICAL: Network lacks a connected Metro-BRTS-AMTS three-mode path!");
+  // 3. Verify the current default cross-network example remains connected.
+  const seededSearch = generateCandidateJourneys('M_EW_02', 'AMC_1334');
+  const hasConnectedRoute = seededSearch.journeys.length > 0;
+  if (!hasConnectedRoute) issues.push('Default Metro-to-bus example has no connected path.');
+  if (busMetadata.directed_edges !== connectionsData.filter(edge => edge.source === 'community_gtfs').length) {
+    issues.push('Imported GTFS edge count does not match the bundled graph.');
   }
+  const busFareEdges = connectionsData.filter(edge => edge.source === 'community_gtfs');
+  const zeroedBusFares = busFareEdges.filter(edge => edge.fare != null && Number(edge.fare) === 0).length;
+  if (zeroedBusFares) issues.push(`${zeroedBusFares} community bus edges are incorrectly represented as zero-fare.`);
 
   // 4. Run Largest-Remainder 100-case Audit
   const auditResult = runLargestRemainderAudit();
@@ -58,8 +57,9 @@ export function runStartupValidation() {
     valid: issues.length === 0,
     issues,
     warnings,
-    threeModeDemoFound: hasThreeModeRoute,
-    demoRoute: seededSearch.journeys.find(j => j.isThreeModeTrip) || seededSearch.journeys[0],
+    connectedDemoFound: hasConnectedRoute,
+    demoRoute: seededSearch.journeys[0] || null,
+    gtfs: busMetadata,
     auditResult
   };
 }

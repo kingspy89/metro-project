@@ -2,7 +2,13 @@ import React from 'react';
 import { X, Train, Bus, MapPin, Footprints, ExternalLink } from 'lucide-react';
 import transfersData from '../data/transfers.json' with { type: 'json' };
 import linesData from '../data/lines.json' with { type: 'json' };
-import { stopsById } from '../engine/graph.js';
+import stopsData from '../data/stops.json' with { type: 'json' };
+import busStopIds from '../data/gtfs_bus_stop_ids.json' with { type: 'json' };
+import busStopRoutes from '../data/gtfs_bus_stop_routes.json' with { type: 'json' };
+
+const stopsById = new Map(stopsData.map(stop => [stop.stop_id, stop]));
+const gtfsBusLines = linesData.filter(item => item.source === 'community_gtfs');
+const busStopIndex = new Map(busStopIds.map((id, index) => [id, index]));
 
 export default function StationDetailModal({ station, onClose, onSetOrigin, onSetDest, lang = 'en' }) {
   if (!station) return null;
@@ -12,6 +18,11 @@ export default function StationDetailModal({ station, onClose, onSetOrigin, onSe
 
   const ModeIcon = station.transport_mode === 'metro' ? Train : Bus;
   const line = linesData.find(item => item.line_id === station.line_id);
+  const busIndex = busStopIndex.get(station.stop_id);
+  const servingRoutes = busIndex == null ? [] : [...new Map(
+    (busStopRoutes[busIndex] || []).map(index => gtfsBusLines[index]).filter(Boolean)
+      .map(route => [route.route_id, route])
+  ).values()];
   const mapsQuery = encodeURIComponent(`${station.stop_name} ${station.transport_mode === 'metro' ? 'metro station' : 'bus stop'}, Ahmedabad, Gujarat, India`);
   const mapsSearchUrl = `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
 
@@ -51,12 +62,31 @@ export default function StationDetailModal({ station, onClose, onSetOrigin, onSe
             <strong>{lang === 'gu' ? 'કોરિડોર:' : 'Corridor:'}</strong> {line?.line_name || station.transport_mode.toUpperCase()}
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-            {lang === 'gu' ? `નમૂનાનો સ્ટોપ ID: ${station.stop_id}. આ સ્થાનિક ડેટામાં રૂટ નંબર અને લાઇવ આગમન ઉપલબ્ધ નથી.` : `Prototype stop ID: ${station.stop_id}. Route numbers and live arrivals are not available in this local dataset.`}
+            {lang === 'gu' ? `નમૂનાનો સ્ટોપ ID: ${station.stop_id}. આ સ્થાનિક ડેટામાં રૂટ નંબર અને લાઇવ આગમન ઉપલબ્ધ નથી.` : `Stop ID: ${station.stop_id}. Bus routes come from a static schedule; live arrivals are not available.`}
           </div>
           <a href={mapsSearchUrl} target="_blank" rel="noreferrer" className="icon-btn" style={{ justifyContent: 'center', textDecoration: 'none' }}>
             <MapPin size={16} /> {lang === 'gu' ? 'Google Maps પર શોધો' : `Find this ${station.transport_mode === 'metro' ? 'station' : 'bus stand'} in Google Maps`} <ExternalLink size={14} />
           </a>
         </div>
+
+        {servingRoutes.length > 0 && (
+          <div style={{ background: 'var(--bg-card)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: 8 }}>
+              {lang === 'gu' ? 'આ સ્ટોપ પર બસ રૂટ' : `Bus routes serving this stop · ${servingRoutes.length}`}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {servingRoutes.slice(0, 16).map(route => (
+                <span key={route.route_id} className="config-tag" title={route.route_long_name}>
+                  {route.route_short_name || route.route_long_name || route.route_id}
+                </span>
+              ))}
+              {servingRoutes.length > 16 && <span className="config-tag">+{servingRoutes.length - 16}</span>}
+            </div>
+            <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', margin: '8px 0 0' }}>
+              {lang === 'gu' ? 'સ્થિર સમયપત્રક ડેટા; live arrivals ઉપલબ્ધ નથી.' : 'Static schedule data; live arrivals are not available.'}
+            </p>
+          </div>
+        )}
 
         {/* Instructions */}
         <div style={{ background: 'var(--bg-station)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>

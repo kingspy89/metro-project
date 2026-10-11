@@ -1,4 +1,4 @@
-{
+﻿{
   "assumed_wait_minutes": {
     "metro": 4,
     "brts": 5,
@@ -11,5 +11,7 @@
   "long_walk_threshold_m": 300,
   "last_updated": "2026-10-11",
   "city": "Ahmedabad",
-  "disclaimer": "All stops, fares, durations, and transfer distances in this prototype are illustrative sample data unless verified against official sources."
+  "disclaimer": "Bus routes and scheduled segment times come from a dated community GTFS compilation. Mapped adult BRTS area-pair fares use the community feed; missing BRTS/AMTS fares use a distance-based prediction, not an operator quote. Metro time and sample fare edges are prototype estimates; proximity transfers are straight-line estimates."
 }
+
+

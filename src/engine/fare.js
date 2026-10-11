@@ -13,19 +13,33 @@
 export function calculateUnifiedFare(operatorFares, unifiedDiscount = 0.0) {
   // Group fares by operator
   const standaloneByOperator = {};
+  const predictedByOperator = {};
+  const unknownOperators = new Set();
   for (const item of operatorFares) {
+    if (!Number.isFinite(item.fare)) {
+      if (Number.isFinite(item.estimate)) predictedByOperator[item.operator] = (predictedByOperator[item.operator] || 0) + item.estimate;
+      else unknownOperators.add(item.operator);
+      continue;
+    }
     standaloneByOperator[item.operator] = (standaloneByOperator[item.operator] || 0) + item.fare;
   }
 
   const operators = Object.keys(standaloneByOperator);
   const totalStandalone = operators.reduce((sum, op) => sum + standaloneByOperator[op], 0);
+  const estimatedSubtotal = Object.values(predictedByOperator).reduce((sum, fare) => sum + fare, 0);
+  const isComplete = unknownOperators.size === 0 && estimatedSubtotal === 0;
 
   // If no fare or 0, return zeroed breakdown
   if (totalStandalone <= 0) {
     return {
       totalStandalone: 0,
+      estimatedSubtotal: Number(estimatedSubtotal.toFixed(2)),
+      estimatedTotal: Number(estimatedSubtotal.toFixed(2)),
+      predictedByOperator: Object.fromEntries(Object.entries(predictedByOperator).map(([op, fare]) => [op, Number(fare.toFixed(2))])),
       discount: 0,
       unifiedPrice: 0,
+      isComplete,
+      unknownOperators: [...unknownOperators],
       allocations: operators.map(op => ({
         operator: op,
         standalone: 0,
@@ -33,12 +47,13 @@ export function calculateUnifiedFare(operatorFares, unifiedDiscount = 0.0) {
         allocation: 0,
         allocationPaise: 0
       })),
-      formulaExplanation: "Total standalone fare is ₹0.00."
+      formulaExplanation: estimatedSubtotal > 0 ? `Predicted bus fare: ₹${estimatedSubtotal.toFixed(2)}. This distance-based amount is not an operator quote.` : isComplete ? 'Total standalone fare is ₹0.00.' : `Fare unavailable for ${[...unknownOperators].join(', ')}. No complete trip fare can be calculated.`
     };
   }
 
   // T = F_total - unified_discount (never below 0)
-  const unifiedPrice = Math.max(0, totalStandalone - unifiedDiscount);
+  const appliedDiscount = isComplete ? unifiedDiscount : 0;
+  const unifiedPrice = Math.max(0, totalStandalone - appliedDiscount);
   const totalUnifiedPaise = Math.round(unifiedPrice * 100);
 
   // Proportional allocation via Largest-Remainder (Hamilton-Hare) Method
@@ -92,14 +107,23 @@ export function calculateUnifiedFare(operatorFares, unifiedDiscount = 0.0) {
   const exactSumMatches = Math.abs(sumAllocations - unifiedPrice) < 0.0001;
 
   // Explanation string
-  const formulaExplanation = unifiedDiscount > 0
+  const formulaExplanation = estimatedSubtotal > 0
+    ? `Predicted trip fare ₹${(totalStandalone + estimatedSubtotal).toFixed(2)} = known fares ₹${totalStandalone.toFixed(2)} + predicted fares ₹${estimatedSubtotal.toFixed(2)}. Predictions use a distance heuristic, not an operator quote.`
+    : !isComplete
+    ? `Known fares total ₹${totalStandalone.toFixed(2)}. Bus fare data is missing for ${[...unknownOperators].join(', ')}; this is a partial subtotal, not a complete trip fare.`
+    : unifiedDiscount > 0
     ? `Simulation only: sample fares of ₹${totalStandalone.toFixed(2)} minus a hypothetical ₹${unifiedDiscount.toFixed(2)} discount gives ₹${unifiedPrice.toFixed(2)}.`
     : `Prototype estimate: local sample fare values are added by operator to ₹${totalStandalone.toFixed(2)}. This is not an official fare quote.`;
 
   return {
     totalStandalone: Number(totalStandalone.toFixed(2)),
-    discount: Number(unifiedDiscount.toFixed(2)),
+    estimatedSubtotal: Number(estimatedSubtotal.toFixed(2)),
+    estimatedTotal: Number((totalStandalone + estimatedSubtotal).toFixed(2)),
+    predictedByOperator: Object.fromEntries(Object.entries(predictedByOperator).map(([op, fare]) => [op, Number(fare.toFixed(2))])),
+    discount: Number(appliedDiscount.toFixed(2)),
     unifiedPrice: Number(unifiedPrice.toFixed(2)),
+    isComplete,
+    unknownOperators: [...unknownOperators],
     allocations,
     sumAllocations,
     exactSumMatches,

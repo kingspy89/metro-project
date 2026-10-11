@@ -1,7 +1,6 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import stopsData from '../data/stops.json' with { type: 'json' };
-import locationsData from '../data/locations.json' with { type: 'json' };
-import { ArrowUpDown, Search, Sparkles, Navigation } from 'lucide-react';
+import { ArrowUpDown, Search } from 'lucide-react';
 import { translate } from '../i18n.js';
 
 export default function StationEntrance({
@@ -13,15 +12,26 @@ export default function StationEntrance({
   preference,
   onChangePreference,
   onSearch,
+  isSearching = false,
   onPickPopular,
   lang = 'en'
 }) {
   const t = text => translate(text, lang);
+  const stopLabel = stop => `${lang === 'gu' ? (stop.stop_name_gu || stop.stop_name) : stop.stop_name} · ${stop.transport_mode.toUpperCase()} · ${stop.stop_id}`;
+  const stopOptions = useMemo(() => stopsData.map(stop => ({ id: stop.stop_id, label: stopLabel(stop) })), [lang]);
+  const optionToId = useMemo(() => new Map(stopOptions.map(option => [option.label, option.id])), [stopOptions]);
+  const selectedOrigin = stopsData.find(stop => stop.stop_id === originStopId);
+  const selectedDestination = stopsData.find(stop => stop.stop_id === destStopId);
+  const [originDraft, setOriginDraft] = useState(selectedOrigin ? stopLabel(selectedOrigin) : '');
+  const [destinationDraft, setDestinationDraft] = useState(selectedDestination ? stopLabel(selectedDestination) : '');
+  useEffect(() => { setOriginDraft(selectedOrigin ? stopLabel(selectedOrigin) : ''); }, [originStopId, lang]);
+  useEffect(() => { setDestinationDraft(selectedDestination ? stopLabel(selectedDestination) : ''); }, [destStopId, lang]);
+  const validInputs = optionToId.has(originDraft) && optionToId.has(destinationDraft);
   const popularTrips = [
     {
-      label: '★ Seeded 3-Mode Demo (Thaltej ➔ Kankaria Lake)',
+      label: 'Thaltej Metro to Kankaria Zoo (Metro + bus)',
       origin: 'M_EW_02',
-      dest: 'A_KANKARIA',
+      dest: 'AMC_1334',
       featured: true
     },
     {
@@ -31,9 +41,9 @@ export default function StationEntrance({
       featured: true
     },
     {
-      label: 'Bopal ➔ LD Engineering College',
-      origin: 'B_BOPAL',
-      dest: 'A_LDENGG',
+      label: 'Bopal to Lal Darwaja (AMTS)',
+      origin: 'AMC_6369',
+      dest: 'AMC_5978',
       featured: false
     },
     {
@@ -63,18 +73,15 @@ export default function StationEntrance({
           <label className="selector-tag" htmlFor="origin-select">
             <span className="node-pin origin" /> {t('Origin Station / Hub')}
           </label>
-          <select
+          <input
+            list="transit-stop-options"
+            type="search"
             id="origin-select"
-            value={originStopId}
-            onChange={e => onChangeOrigin(e.target.value)}
+            value={originDraft}
+            placeholder={t('Search 3,000+ stations and bus stops')}
+            onChange={e => { setOriginDraft(e.target.value); if (optionToId.has(e.target.value)) onChangeOrigin(optionToId.get(e.target.value)); }}
             className="select-input"
-          >
-            {stopsData.map(s => (
-              <option key={s.stop_id} value={s.stop_id}>
-                {(lang === 'gu' ? (s.stop_name_gu || s.stop_name) : s.stop_name)} ({s.transport_mode.toUpperCase()})
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
         <button
@@ -90,20 +97,20 @@ export default function StationEntrance({
           <label className="selector-tag" htmlFor="dest-select">
             <span className="node-pin dest" /> {t('Destination Station / Hub')}
           </label>
-          <select
+          <input
+            list="transit-stop-options"
+            type="search"
             id="dest-select"
-            value={destStopId}
-            onChange={e => onChangeDest(e.target.value)}
+            value={destinationDraft}
+            placeholder={t('Search 3,000+ stations and bus stops')}
+            onChange={e => { setDestinationDraft(e.target.value); if (optionToId.has(e.target.value)) onChangeDest(optionToId.get(e.target.value)); }}
             className="select-input"
-          >
-            {stopsData.map(s => (
-              <option key={s.stop_id} value={s.stop_id}>
-                {(lang === 'gu' ? (s.stop_name_gu || s.stop_name) : s.stop_name)} ({s.transport_mode.toUpperCase()})
-              </option>
-            ))}
-          </select>
+          />
         </div>
       </div>
+      <datalist id="transit-stop-options">
+        {stopOptions.map(option => <option key={option.id} value={option.label} />)}
+      </datalist>
 
       {/* Preference Chips & Search Action */}
       <div className="search-controls-row">
@@ -136,9 +143,10 @@ export default function StationEntrance({
         <button
           className="primary-search-btn"
           onClick={onSearch}
+          disabled={!validInputs || isSearching}
           id="btn-find-journey"
         >
-          <Search size={18} /> {t('Find My Journey')}
+          <Search size={18} /> {isSearching ? t('Finding routes…') : t('Find My Journey')}
         </button>
       </div>
 

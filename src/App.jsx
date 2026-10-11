@@ -1,22 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import stopsData from './data/stops.json' with { type: 'json' };
-import configData from './data/config.json' with { type: 'json' };
-import { generateCandidateJourneys, stopsById } from './engine/graph.js';
-import { runStartupValidation } from './engine/validator.js';
+﻿import React, { lazy, Suspense, useRef, useState, useEffect } from 'react';
+import allStopIds from './data/all_stop_ids.json' with { type: 'json' };
 import { searchRateLimiter } from './security/rateLimiter.js';
-import { sanitizeInput, validateStopId } from './security/sanitizer.js';
+import { validateStopId } from './security/sanitizer.js';
+import { findJourneysInWorker } from './engine/routePlannerClient.js';
 
-import StationEntrance from './components/StationEntrance.jsx';
-import DepartureBoard from './components/DepartureBoard.jsx';
-import MetroMap from './components/MetroMap.jsx';
-import JourneyTimeline from './components/JourneyTimeline.jsx';
-import UnifiedTicket from './components/UnifiedTicket.jsx';
-import ControlRoom from './components/ControlRoom.jsx';
-import StationDetailModal from './components/StationDetailModal.jsx';
-import DataTransparencyModal from './components/DataTransparencyModal.jsx';
+const DepartureBoard = lazy(() => import('./components/DepartureBoard.jsx'));
+const StationEntrance = lazy(() => import('./components/StationEntrance.jsx'));
+const MetroMap = lazy(() => import('./components/MetroMap.jsx'));
+const JourneyTimeline = lazy(() => import('./components/JourneyTimeline.jsx'));
+const UnifiedTicket = lazy(() => import('./components/UnifiedTicket.jsx'));
+const ControlRoom = lazy(() => import('./components/ControlRoom.jsx'));
+const StationDetailModal = lazy(() => import('./components/StationDetailModal.jsx'));
+const DataTransparencyModal = lazy(() => import('./components/DataTransparencyModal.jsx'));
 import SecurityStatusBar from './components/SecurityStatusBar.jsx';
-import TripAssistant from './components/TripAssistant.jsx';
+const TripAssistant = lazy(() => import('./components/TripAssistant.jsx'));
 import { translate } from './i18n.js';
+
+const validStopIds = new Set(allStopIds);
 
 import { 
   Sun, 
@@ -24,12 +24,7 @@ import {
   Languages, 
   Info, 
   Sliders, 
-  Radio, 
-  AlertCircle, 
-  ShieldCheck, 
-  Compass, 
-  CheckCircle2,
-  Train
+  AlertCircle
 } from 'lucide-react';
 
 export default function App() {
@@ -40,7 +35,7 @@ export default function App() {
 
   // Route Planning State (Default seeded demo: Thaltej -> Kankaria Lake)
   const [originStopId, setOriginStopId] = useState('M_EW_02');
-  const [destStopId, setDestStopId] = useState('A_KANKARIA');
+  const [destStopId, setDestStopId] = useState('AMC_1334');
   const [preference, setPreference] = useState('balanced');
 
   // Search Results State
@@ -48,6 +43,9 @@ export default function App() {
   const [selectedJourney, setSelectedJourney] = useState(null);
   const [searchError, setSearchError] = useState(null);
   const [isSingleRouteOnly, setIsSingleRouteOnly] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchSequence = useRef(0);
+  const initialSearchStarted = useRef(false);
 
   // Modals & Panels State
   const [activeStationModal, setActiveStationModal] = useState(null);
@@ -57,16 +55,11 @@ export default function App() {
   // Rate Limiting & Feedback State
   const [rateLimitNotice, setRateLimitNotice] = useState(null);
 
-  // Startup validation check
+  // Load the route engine when the first plan is requested.
   useEffect(() => {
-    const valResult = runStartupValidation();
-    console.log('[YatraOne Engine Startup]', valResult);
-    if (!valResult.valid) {
-      console.warn('[YatraOne Engine Startup Issues]', valResult.issues);
-    }
-
-    // Run initial search for seeded demo journey
-    handleExecuteSearch('M_EW_02', 'A_KANKARIA', 'balanced');
+    if (initialSearchStarted.current) return;
+    initialSearchStarted.current = true;
+    handleExecuteSearch('M_EW_02', 'AMC_1334', 'balanced');
   }, []);
 
   // Update HTML data-theme attribute
@@ -75,9 +68,11 @@ export default function App() {
   }, [theme]);
 
   // Execute Search with Rate Limiting and Validation
-  const handleExecuteSearch = (origId, dstId, pref) => {
+  const handleExecuteSearch = async (origId, dstId, pref) => {
+    const sequence = ++searchSequence.current;
     setSearchError(null);
     setRateLimitNotice(null);
+    setIsSearching(true);
     const clearStaleJourney = () => {
       setJourneys([]);
       setSelectedJourney(null);
@@ -89,25 +84,38 @@ export default function App() {
     if (!rateCheck.allowed) {
       clearStaleJourney();
       setRateLimitNotice(`Rate Limit: Too many searches. Please wait ${rateCheck.retryAfterMs / 1000}s.`);
+      setIsSearching(false);
       return;
     }
 
     // Input Validation
-    const allStopIds = new Set(stopsData.map(s => s.stop_id));
-    if (!validateStopId(origId, allStopIds) || !validateStopId(dstId, allStopIds)) {
+    if (!validateStopId(origId, validStopIds) || !validateStopId(dstId, validStopIds)) {
       clearStaleJourney();
       setSearchError("Invalid station identifier selected.");
+      setIsSearching(false);
       return;
     }
 
     if (origId === dstId) {
       setSearchError("Origin and destination stations cannot be the same. Please choose two distinct locations.");
       clearStaleJourney();
+      setIsSearching(false);
       return;
     }
 
     // Query engine
-    const searchResult = generateCandidateJourneys(origId, dstId);
+    let searchResult;
+    try {
+      searchResult = await findJourneysInWorker(origId, dstId);
+    } catch (error) {
+      if (sequence === searchSequence.current) setSearchError('The route planner could not load. Please try again.');
+      console.error('[YatraOne route planner]', error);
+      return;
+    } finally {
+      if (sequence === searchSequence.current) setIsSearching(false);
+    }
+
+    if (sequence !== searchSequence.current) return;
 
     if (searchResult.error) {
       setSearchError(searchResult.error);
@@ -121,7 +129,9 @@ export default function App() {
     if (pref === 'fastest') {
       sorted.sort((a, b) => a.totalTimeMinutes - b.totalTimeMinutes);
     } else if (pref === 'cheapest') {
-      sorted.sort((a, b) => a.fareBreakdown.unifiedPrice - b.fareBreakdown.unifiedPrice);
+      sorted.sort((a, b) => a.fareBreakdown.estimatedTotal - b.fareBreakdown.estimatedTotal
+        || Number(b.fareBreakdown.isComplete) - Number(a.fareBreakdown.isComplete)
+        || a.totalTimeMinutes - b.totalTimeMinutes);
     } else {
       // Rank by the route planner's additive balanced score; mode count alone
       // should not make an itinerary look better.
@@ -273,6 +283,7 @@ export default function App() {
       <SecurityStatusBar />
 
       {/* Screen 1: Station Entrance */}
+      <Suspense fallback={<div className="search-loading" role="status">{t('Loading station search…')}</div>}>
       <StationEntrance
         originStopId={originStopId}
         destStopId={destStopId}
@@ -288,9 +299,11 @@ export default function App() {
         preference={preference}
         onChangePreference={handlePreferenceChange}
         onSearch={() => handleExecuteSearch(originStopId, destStopId, preference)}
+        isSearching={isSearching}
         onPickPopular={handlePickPopular}
         lang={activeLang}
       />
+      </Suspense>
 
       {/* Search or Rate Limit Warnings */}
       {rateLimitNotice && (
@@ -309,22 +322,23 @@ export default function App() {
 
       {/* Screen 5: Operator Control Room (when toggled) */}
       {showControlRoom && selectedJourney && (
-        <ControlRoom
-          journey={selectedJourney}
-          onClose={() => setShowControlRoom(false)}
-        />
+        <Suspense fallback={null}>
+          <ControlRoom journey={selectedJourney} onClose={() => setShowControlRoom(false)} />
+        </Suspense>
       )}
 
       {/* Screen 2: Departure Board Results */}
       {journeys.length > 0 && (
-        <DepartureBoard
-          journeys={journeys}
-          selectedJourney={selectedJourney}
-          onSelectJourney={setSelectedJourney}
-          preference={preference}
-          isSingleRouteOnly={isSingleRouteOnly}
-          lang={activeLang}
-        />
+        <Suspense fallback={<div className="search-loading" role="status">{t('Loading trip options…')}</div>}>
+          <DepartureBoard
+            journeys={journeys}
+            selectedJourney={selectedJourney}
+            onSelectJourney={setSelectedJourney}
+            preference={preference}
+            isSingleRouteOnly={isSingleRouteOnly}
+            lang={activeLang}
+          />
+        </Suspense>
       )}
 
       {/* Screen 3: Journey Map "Your Line" (Hero Screen) */}
@@ -343,30 +357,40 @@ export default function App() {
                 {selectedJourney.modesUsed.map(m => m.toUpperCase()).join(' + ')}
               </span>
               <span className="config-tag">
-                {selectedJourney.totalTimeMinutes} {activeLang === 'gu' ? 'મિનિટ' : 'min'} · {activeLang === 'gu' ? 'નમૂનો' : 'sample'} ₹{selectedJourney.fareBreakdown.unifiedPrice.toFixed(2)}
+                {selectedJourney.totalTimeMinutes} {activeLang === 'gu' ? 'મિનિટ' : 'min'} · {selectedJourney.fareBreakdown.isComplete
+                  ? `${activeLang === "gu" ? "નમૂનો" : "sample"} ₹${selectedJourney.fareBreakdown.unifiedPrice.toFixed(2)}`
+                  : selectedJourney.fareBreakdown.estimatedSubtotal > 0 ? `${activeLang === "gu" ? "અંદાજ" : "predicted"} ₹${selectedJourney.fareBreakdown.estimatedTotal.toFixed(2)}`
+                    : activeLang === "gu" ? "ભાડું ઉપલબ્ધ નથી" : "fare unavailable"}
               </span>
             </div>
           </div>
 
           {/* Interactive SVG Metro Map */}
-          <MetroMap
-            selectedJourney={selectedJourney}
-            onSelectStation={station => setActiveStationModal(station)}
-            activeLang={activeLang}
-          />
+          <Suspense fallback={<div className="map-loading" role="status">{t('Loading the transit map…')}</div>}>
+            <MetroMap
+              selectedJourney={selectedJourney}
+              onSelectStation={station => setActiveStationModal(station)}
+              activeLang={activeLang}
+            />
+          </Suspense>
 
           {/* Announcement-Style Step-by-Step Timeline */}
-          <JourneyTimeline journey={selectedJourney} lang={activeLang} />
-          <TripAssistant journey={selectedJourney} lang={activeLang} />
+          <Suspense fallback={<div className="search-loading">{t('Loading journey details…')}</div>}>
+            <JourneyTimeline journey={selectedJourney} lang={activeLang} />
+            <TripAssistant journey={selectedJourney} lang={activeLang} />
+          </Suspense>
         </div>
       )}
 
       {/* Screen 4: Unified Ticket Card */}
       {selectedJourney && (
-        <UnifiedTicket journey={selectedJourney} lang={activeLang} />
+        <Suspense fallback={null}>
+          <UnifiedTicket journey={selectedJourney} lang={activeLang} />
+        </Suspense>
       )}
 
       {/* Station Detail Bottom Sheet / Modal */}
+      <Suspense fallback={null}>
       {activeStationModal && (
         <StationDetailModal
           station={activeStationModal}
@@ -382,13 +406,13 @@ export default function App() {
           }}
         />
       )}
+      </Suspense>
 
       {/* Data Transparency & Privacy Governance Modal */}
       {showTransparencyModal && (
-        <DataTransparencyModal
-          onClose={() => setShowTransparencyModal(false)}
-          lang={activeLang}
-        />
+        <Suspense fallback={null}>
+          <DataTransparencyModal onClose={() => setShowTransparencyModal(false)} lang={activeLang} />
+        </Suspense>
       )}
 
       {/* App Footer */}
@@ -417,3 +441,4 @@ export default function App() {
     </div>
   );
 }
+

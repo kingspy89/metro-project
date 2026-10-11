@@ -11,7 +11,8 @@ export default function ControlRoom({ journey, onClose }) {
   // Extract operator fares from active journey
   const operatorFares = journey.legs
     .filter(l => l.type === 'ride')
-    .map(l => ({ operator: l.mode, fare: l.fare }));
+    .map(l => ({ operator: l.mode, fare: l.fareKnown ? l.fare : null }));
+  const fareComplete = journey.fareBreakdown.isComplete;
 
   // Dynamic simulation with slider
   const simulatedFare = calculateUnifiedFare(operatorFares, discountValue);
@@ -45,6 +46,8 @@ export default function ControlRoom({ journey, onClose }) {
         Simulate multimodal discount parameters, evaluate revenue impact on Ahmedabad Metro, Janmarg BRTS, and AMTS, and verify mathematical settlement invariants.
       </p>
 
+      {!fareComplete && <div className="honesty-banner">Bus fare estimates may be predicted from distance. Discount and allocation controls use only known fare data and cannot represent a complete settlement.</div>}
+
       {/* Sensitivity Slider */}
       <div className="slider-container">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
@@ -60,7 +63,8 @@ export default function ControlRoom({ journey, onClose }) {
           min="0"
           max={Math.min(25, simulatedFare.totalStandalone)}
           step="0.5"
-          value={discountValue}
+          value={fareComplete ? discountValue : 0}
+          disabled={!fareComplete}
           onChange={e => setDiscountValue(parseFloat(e.target.value))}
           className="range-slider"
         />

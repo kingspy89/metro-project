@@ -40,6 +40,33 @@ const gu = {
   'One connected journey': 'એક જોડાયેલી મુસાફરી',
 }
 
+Object.assign(gu, {
+  'Fare unavailable': 'ભાડું ઉપલબ્ધ નથી',
+  'bus fare unavailable': 'બસનું ભાડું ઉપલબ્ધ નથી',
+  'partial fare': 'આંશિક ભાડું',
+  'Fare not available': 'ભાડું ઉપલબ્ધ નથી',
+  'Search 3,000+ stations and bus stops': '3,000થી વધુ સ્ટેશન અને બસ સ્ટોપ શોધો',
+  'Finding routes…': 'માર્ગ શોધી રહ્યા છીએ…',
+  'LOWEST KNOWN FARE': 'સૌથી ઓછું ઉપલબ્ધ ભાડું',
+  'Lowest fare among routes with fare data for every ride': 'દરેક મુસાફરીના ભાડાની માહિતી ધરાવતા માર્ગોમાંથી ઓછું ભાડું',
+  'Known fare subtotal by network': 'નેટવર્ક મુજબ જાણીતા ભાડાનો ઉપકુલ',
+  'Known fare subtotal': 'જાણીતા ભાડાનો ઉપકુલ',
+  'KNOWN FARE SUBTOTAL': 'જાણીતા ભાડાનો ઉપકુલ',
+  'Bus fare data is missing for this trip. The displayed amount is a partial known-fare subtotal, not a trip total.': 'આ મુસાફરી માટે બસ ભાડાની માહિતી ઉપલબ્ધ નથી. દર્શાવેલી રકમ માત્ર જાણીતા ભાડાનો ઉપકુલ છે, કુલ ભાડું નથી.',
+  'Partial fare only': 'માત્ર આંશિક ભાડું',
+  'Loading the transit map…': 'ટ્રાન્ઝિટ નકશો લોડ થઈ રહ્યો છે…',
+  'Change to route': 'આ રૂટ પર બદલો',
+  'route change': 'રૂટ બદલાવો',
+  'Loading station search…': 'સ્ટેશન શોધ લોડ થઈ રહી છે…',
+  'Loading journey details…': 'મુસાફરીની વિગતો લોડ થઈ રહી છે…',
+  'Bus fares unavailable; shown amounts are partial subtotals.': 'બસ ભાડું ઉપલબ્ધ નથી; દર્શાવેલી રકમ આંશિક ઉપકુલ છે.',
+  'Total fares are incomplete, so routes are ordered by time.': 'કુલ ભાડાની માહિતી અધૂરી છે, તેથી માર્ગો સમય પ્રમાણે ગોઠવ્યા છે.',
+  'LOWEST ESTIMATED FARE': 'સૌથી ઓછું અંદાજિત ભાડું',
+  'Predicted fare': 'અંદાજિત ભાડું', 'predicted': 'અંદાજ', 'Estimate only': 'માત્ર અંદાજ',
+  'Predicted bus fares use distance only; confirm with the operator.': 'બસનું અંદાજિત ભાડું ફક્ત અંતર પર આધારિત છે; સંચાલક પાસે ખાતરી કરો.',
+  'Routes are ranked by predicted fare; values are estimates.': 'માર્ગો અંદાજિત ભાડા પ્રમાણે ગોઠવ્યા છે; રકમ અંદાજ છે.',
+});
+
 export function translate(text, language = 'en') {
   return language === 'gu' ? (gu[text] || text) : text
 }

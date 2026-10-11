@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Bot, ExternalLink, Send, Sparkles } from 'lucide-react'
-import { stopsById } from '../engine/graph.js'
+import stopsData from '../data/stops.json' with { type: 'json' }
 import { translate } from '../i18n.js'
+
+const stopsById = new Map(stopsData.map(stop => [stop.stop_id, stop]));
 
 function describeJourney(journey) {
   if (!journey) return 'No trip selected.'
@@ -9,9 +11,16 @@ function describeJourney(journey) {
     const from = stopsById.get(leg.fromStop)?.stop_name || leg.fromStop
     const to = stopsById.get(leg.toStop)?.stop_name || leg.toStop
     if (leg.type === 'transfer') return `Walk/transfer: ${from} to ${to}, ${leg.durationMinutes || 0} min.`
-    return `Ride ${leg.mode} (${leg.lineId || 'line'}): ${from} to ${to}, ${leg.durationMinutes || 0} min, sample leg fare ₹${Number(leg.fare || 0).toFixed(2)}.`
+    const routeName = leg.routeShortName || leg.routeLongName || leg.lineId || 'line'
+    const fare = leg.fareKnown ? `${leg.mode === 'metro' ? 'sample fare' : 'feed adult fare'} ₹${Number(leg.fare).toFixed(2)}` : leg.fareEstimated ? `predicted fare ₹${Number(leg.fare).toFixed(2)}` : 'fare unavailable'
+    return `Ride ${leg.mode} (${routeName}): ${from} to ${to}, ${leg.durationMinutes || 0} min, ${fare}.`
   })
-  return `${journey.originStop.stop_name} to ${journey.destStop.stop_name}. Estimated ${journey.totalTimeMinutes} minutes; sample fare total ₹${journey.fareBreakdown.unifiedPrice.toFixed(2)}. These are prototype estimates. Legs: ${legs.join(' | ')}`
+  const fareText = journey.fareBreakdown.isComplete
+    ? `sample fare total ₹${journey.fareBreakdown.unifiedPrice.toFixed(2)}`
+    : journey.fareBreakdown.estimatedTotal > 0
+      ? `predicted fare total ₹${journey.fareBreakdown.estimatedTotal.toFixed(2)}; distance-based bus estimates are not operator quotes`
+      : `known-fare subtotal ₹${journey.fareBreakdown.totalStandalone.toFixed(2)}; some fares unavailable`;
+  return `${journey.originStop.stop_name} to ${journey.destStop.stop_name}. Estimated ${journey.totalTimeMinutes} minutes; ${fareText}. Bus routes use a static community schedule and have no live departures. Legs: ${legs.join(' | ')}`
 }
 
 export default function TripAssistant({ journey, lang = 'en' }) {

@@ -1,6 +1,7 @@
-import React from 'react';
+﻿import React from 'react';
 import { X, ShieldCheck, Database, Lock, Globe, FileText, Info } from 'lucide-react';
 import configData from '../data/config.json' with { type: 'json' };
+import busMetadata from '../data/gtfs_metadata.json' with { type: 'json' };
 import { translate } from '../i18n.js';
 
 export default function DataTransparencyModal({ onClose, lang = 'en' }) {
@@ -30,8 +31,18 @@ export default function DataTransparencyModal({ onClose, lang = 'en' }) {
         <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)', padding: 14, borderRadius: 10, color: '#FCD34D', fontSize: '0.86rem' }}>
           <strong>{lang === 'gu' ? 'ડેટા સચોટતા નિયમ:' : 'Data Honesty Rule (PRD v2):'}</strong>
           <p style={{ marginTop: 4 }}>
-            {lang === 'gu' ? 'આ પ્રોટોટાઇપના સ્ટોપ, ભાડા, સમય અને ટ્રાન્સફર અંતર સત્તાવાર સ્ત્રોતથી ચકાસ્યા ન હોય ત્યાં સુધી માત્ર ઉદાહરણરૂપ ડેટા છે. ભાડા અને આવકના હિસ્સા ગાણિતિક મોડેલ છે, મંજૂર વ્યાવસાયિક કરાર નથી.' : 'All stops, fares, durations, and transfer distances in this prototype are illustrative sample data unless verified against official sources. Fares and revenue splits reflect mathematical models rather than an approved commercial agreement.'}
+            {lang === 'gu' ? 'આ પ્રોટોટાઇપના સ્ટોપ, ભાડા, સમય અને ટ્રાન્સફર અંતર સત્તાવાર સ્ત્રોતથી ચકાસ્યા ન હોય ત્યાં સુધી માત્ર ઉદાહરણરૂપ ડેટા છે. ભાડા અને આવકના હિસ્સા ગાણિતિક મોડેલ છે, મંજૂર વ્યાવસાયિક કરાર નથી.' : 'Bus routes and scheduled segment times come from a community GTFS compilation, not a live operator feed. Missing bus fares use a labeled distance-based prediction; it is not an operator quote. Metro travel times, sample fares, and coordinate-based transfer walks remain prototype estimates.'}
           </p>
+        </div>
+
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', padding: 14, borderRadius: 10, fontSize: '0.86rem' }}>
+          <h4 style={{ margin: '0 0 6px', color: 'var(--text-bright)' }}>{lang === 'gu' ? 'બસ ડેટાનો સ્ત્રોત' : 'Bus data source'}</h4>
+          <p style={{ margin: '0 0 8px', color: 'var(--text-secondary)' }}>
+            {busMetadata.stops.toLocaleString()} stops · {busMetadata.routes} routes · valid {busMetadata.validity_start.slice(0, 4)}-{busMetadata.validity_start.slice(4, 6)}-{busMetadata.validity_start.slice(6)} through {busMetadata.validity_end.slice(0, 4)}-{busMetadata.validity_end.slice(4, 6)}-{busMetadata.validity_end.slice(6)}. Imported {busMetadata.imported_at}.
+          </p>
+          <a href={busMetadata.source_url} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-orange)' }}>{busMetadata.source_name}</a>
+          <p style={{ margin: '8px 0 0', color: 'var(--text-muted)' }}>{busMetadata.attribution}</p>
+          <p style={{ margin: '8px 0 0', color: 'var(--text-muted)' }}>{busMetadata.fare_note}</p>
         </div>
 
         {/* Configuration Assumptions */}
@@ -100,3 +111,4 @@ export default function DataTransparencyModal({ onClose, lang = 'en' }) {
     </div>
   );
 }
+

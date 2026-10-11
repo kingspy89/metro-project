@@ -12,6 +12,12 @@ export default function UnifiedTicket({ journey, lang = 'en' }) {
 
   const { fareBreakdown } = journey;
   const { totalStandalone, discount, unifiedPrice, allocations, formulaExplanation } = fareBreakdown;
+  const fareSubtotalLabel = fareBreakdown.isComplete
+    ? `₹${totalStandalone.toFixed(2)}`
+    : totalStandalone > 0 ? `₹${totalStandalone.toFixed(2)} (known)` : t('Fare unavailable');
+  const tripFareLabel = fareBreakdown.isComplete ? `₹${unifiedPrice.toFixed(2)}`
+    : fareBreakdown.estimatedSubtotal > 0 ? `₹${fareBreakdown.estimatedTotal.toFixed(2)} (${t('predicted')})`
+      : totalStandalone > 0 ? `₹${totalStandalone.toFixed(2)} (${t('partial fare')})` : t('Fare unavailable');
 
   // Function to export ticket as PNG using HTML5 Canvas (100% offline, native)
   const handleExportTicket = () => {
@@ -56,11 +62,11 @@ export default function UnifiedTicket({ journey, lang = 'en' }) {
       // Fare
       ctx.fillStyle = '#34D399';
       ctx.font = 'bold 32px monospace';
-      ctx.fillText(`₹${unifiedPrice.toFixed(2)}`, 40, 185);
+      ctx.fillText(fareBreakdown.isComplete ? `₹${unifiedPrice.toFixed(2)}` : 'PARTIAL FARE', 40, 185);
 
       ctx.fillStyle = '#94A3B8';
       ctx.font = '13px system-ui';
-      ctx.fillText('Estimated total from local sample data', 160, 180);
+      ctx.fillText(fareBreakdown.isComplete ? 'Estimated total from local sample data' : 'Bus fare not available; no total', 160, 180);
 
       // Operator splits
       ctx.fillStyle = '#F8FAFC';
@@ -121,6 +127,7 @@ export default function UnifiedTicket({ journey, lang = 'en' }) {
         <button
           className="icon-btn"
           onClick={handleExportTicket}
+          disabled={!fareBreakdown.isComplete}
           title="Export journey pass as PNG"
         >
           {downloadSuccess ? (
@@ -139,9 +146,11 @@ export default function UnifiedTicket({ journey, lang = 'en' }) {
       <div className="honesty-banner">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <ShieldAlert size={18} />
-          <span>{t('Sample edge fares are summed across each ride. These are not official fare quotes or a usable ticket.')}</span>
+          <span>{fareBreakdown.isComplete
+            ? t('Sample edge fares are summed across each ride. These are not official fare quotes or a usable ticket.')
+            : t('Bus fare data is missing for this trip. The displayed amount is a partial known-fare subtotal, not a trip total.')}</span>
         </div>
-        <span className="config-tag">{t('Sample amounts grouped by network')}</span>
+        <span className="config-tag">{fareBreakdown.isComplete ? t('Sample amounts grouped by network') : fareBreakdown.estimatedSubtotal > 0 ? t('Predicted fare; not an operator quote') : t('Partial fare only')}</span>
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
@@ -159,9 +168,9 @@ export default function UnifiedTicket({ journey, lang = 'en' }) {
       {/* Visual Proportional Width Bar per PRD Section 6.2 Screen 4 */}
       <div className="proportional-bar-container">
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-          <span style={{ fontWeight: 700, color: 'var(--text-bright)' }}>{t('Sample fare subtotal by network')}</span>
+          <span style={{ fontWeight: 700, color: 'var(--text-bright)' }}>{t(fareBreakdown.isComplete ? 'Sample fare subtotal by network' : 'Known fare subtotal by network')}</span>
           <span style={{ fontFamily: 'var(--font-mono)', color: '#34D399', fontWeight: 700 }}>
-            Route estimate: ₹{unifiedPrice.toFixed(2)} (sample)
+            {fareBreakdown.isComplete ? `Route estimate: ₹${unifiedPrice.toFixed(2)} (sample)` : fareBreakdown.estimatedSubtotal > 0 ? `Predicted trip fare: ₹${fareBreakdown.estimatedTotal.toFixed(2)}` : totalStandalone > 0 ? `Known subtotal: ${fareSubtotalLabel} + bus fare unavailable` : t('Fare unavailable')}
           </span>
         </div>
 
@@ -204,7 +213,7 @@ export default function UnifiedTicket({ journey, lang = 'en' }) {
             <thead>
               <tr>
                 <th>{t('Network')}</th>
-                <th style={{ textAlign: 'right' }}>{t('Sample fare subtotal')}</th>
+                <th style={{ textAlign: 'right' }}>{t(fareBreakdown.isComplete ? 'Sample fare subtotal' : 'Known fare subtotal')}</th>
                 <th style={{ textAlign: 'right' }}>{t('Share of sample total')}</th>
                 <th style={{ textAlign: 'right' }}>{t('Included in sample total')}</th>
               </tr>
@@ -223,11 +232,19 @@ export default function UnifiedTicket({ journey, lang = 'en' }) {
                   <td className="numeric" style={{ color: '#34D399' }}>₹{a.allocation.toFixed(2)}</td>
                 </tr>
               ))}
+              {Object.entries(fareBreakdown.predictedByOperator || {}).map(([operator, fare]) => (
+                <tr key={`predicted-${operator}`}>
+                  <td style={{ fontWeight: 600, textTransform: 'capitalize' }}>{operator} · {t('predicted')}</td>
+                  <td className="numeric">₹{fare.toFixed(2)}</td>
+                  <td className="numeric">—</td>
+                  <td className="numeric">{t('Estimate only')}</td>
+                </tr>
+              ))}
               <tr style={{ background: 'rgba(255, 255, 255, 0.04)', fontWeight: 800 }}>
-                <td>{t('Sample subtotal')}</td>
-                <td className="numeric">₹{totalStandalone.toFixed(2)}</td>
+                <td>{t(fareBreakdown.isComplete ? 'Sample subtotal' : 'Known fare subtotal')}</td>
+                <td className="numeric">{fareSubtotalLabel}</td>
                 <td className="numeric">100.00%</td>
-                <td className="numeric" style={{ color: '#34D399' }}>₹{unifiedPrice.toFixed(2)}</td>
+                <td className="numeric" style={{ color: '#34D399' }}>₹{fareBreakdown.estimatedTotal.toFixed(2)}</td>
               </tr>
               <tr style={{ color: '#EC4899', fontWeight: 700 }}>
                 <td>{t('Multimodal Discount')}</td>
@@ -236,11 +253,11 @@ export default function UnifiedTicket({ journey, lang = 'en' }) {
                 <td className="numeric" style={{ color: '#EC4899' }}>-₹{discount.toFixed(2)}</td>
               </tr>
               <tr style={{ background: 'rgba(59, 130, 246, 0.1)', fontWeight: 800 }}>
-                <td style={{ color: 'var(--text-bright)' }}>{t('ESTIMATED SAMPLE TOTAL')}</td>
+                <td style={{ color: 'var(--text-bright)' }}>{t(fareBreakdown.isComplete ? 'ESTIMATED SAMPLE TOTAL' : 'KNOWN FARE SUBTOTAL')}</td>
                 <td className="numeric">-</td>
                 <td className="numeric">-</td>
                 <td className="numeric" style={{ color: '#60A5FA', fontSize: '1.15rem' }}>
-                  ₹{unifiedPrice.toFixed(2)}
+                  {tripFareLabel}
                 </td>
               </tr>
             </tbody>
@@ -277,7 +294,7 @@ export default function UnifiedTicket({ journey, lang = 'en' }) {
             <p style={{ marginBottom: 8 }}>{formulaExplanation}</p>
             <div style={{ padding: 10, background: 'rgba(0, 0, 0, 0.25)', borderRadius: 6, fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>
               <div>R_i = (T × F_i) / F_total</div>
-              <div>T = ₹{totalStandalone.toFixed(2)} - ₹{discount.toFixed(2)} = ₹{unifiedPrice.toFixed(2)}</div>
+              <div>{fareBreakdown.isComplete ? `T = ₹${totalStandalone.toFixed(2)} - ₹${discount.toFixed(2)} = ₹${unifiedPrice.toFixed(2)}` : formulaExplanation}</div>
               <div>Rounding: Largest-Remainder Method (Hamilton-Hare) to exact paise</div>
               <div style={{ color: '#34D399', marginTop: 4 }}>
                 ✓ Exact paise sum verification: {allocations.map(a => a.allocationPaise).join(' + ')} = {Math.round(unifiedPrice * 100)} paise

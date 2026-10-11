@@ -1,4 +1,4 @@
-<div align="center">
+﻿<div align="center">
 
 # YatraOne
 ### Ahmedabad transit, connected.
@@ -29,14 +29,15 @@
 | **Languages** | English and Gujarati |
 | **Route options** | Fastest, Cheapest, and Balanced |
 | **App** | React 19 + Vite 8 |
-| **Data status** | Local prototype network; fares and bus coverage are not live |
+| **Data status** | 623 bus routes and 3,129 stops from a dated community GTFS feed; no live arrivals |
+| **Fare status** | Prototype Metro fares, community-feed BRTS fares, and clearly marked distance-based bus predictions |
 
-YatraOne brings transit routes, transfer guidance, a schematic network map, and journey estimates together. It is designed as a clear, visual prototype for exploring how Ahmedabad's separate networks can connect.
+YatraOne brings bus route numbers, transfer guidance, a geographic network map, and journey estimates together. It is a local journey-planning prototype for exploring connections across Ahmedabad's transit networks.
 
 ## A transit experience built for the city
 
-- **Plan across modes.** Choose stops and compare Fastest, Cheapest, and Balanced sample journeys.
-- **Explore the network.** Use the high-contrast dark map canvas, clear mode filters and route legend; zoom, pan, and open stop details in either app theme.
+- **Plan across modes.** Search more than 3,100 bus stops and Metro stations, then compare Fastest, Lowest Known Fare, and Balanced routes.
+- **Explore the network.** See 623 bus routes drawn from feed stop sequences, with mode filters, zoom, pan, stop details, and active-route highlighting.
 - **Follow the route.** See selected legs highlighted by transit mode, with step-by-step transfer guidance.
 - **Use your language.** Switch planner details, stop names, journey steps, fares, and assistant between English and Gujarati where translations are available.
 - **See the city in motion.** The landing page uses a muted, looping 10-second, 720p video at [`public/videos/gemini_generated_video_429b205b.mp4`](public/videos/gemini_generated_video_429b205b.mp4), with a still poster for reduced-motion settings.
@@ -51,14 +52,20 @@ YatraOne models stops and transit modes as a graph. It uses **transfer-aware Dij
 | Option | What it favors |
 | --- | --- |
 | **Fastest** | Ride time plus estimated waiting, walking, and transfer time |
-| **Cheapest** | Bundled sample fares, with time as a small tie-breaker |
-| **Balanced** | Normalized time and sample fare, with transfer and walking penalties |
+| **Lowest Estimated Fare** | Routes ranked by known fares plus labeled distance-based bus fare predictions |
+| **Balanced** | Estimated time, transfers, and known fares plus distance-based predictions where needed |
 
-The Balanced score is additive, so the shortest-path search can compare partial paths consistently. Fare-based rankings depend on prototype fare values until verified fare data is integrated.
+Search uses a binary min-heap for its open set, so it can prioritize the next best partial route without sorting the full queue after every step. The lowest-fare option compares known fares and predicted bus fares; predictions never appear as verified operator prices.
+
+The planner runs in a dedicated browser Web Worker. The expanded bus graph contains more than 40,000 directed ride edges, and route searches can take several seconds; keeping that work off the page thread prevents map interactions and controls from freezing while a route is calculated.
+
+For faster startup, trip results, ticket details, the operator panel, and data-source dialog load only when needed. Transit corridor geometry is built once, routes are simplified within two SVG viewBox units, and the memoized network layer does not rebuild hundreds of SVG routes during map hover or zoom. Map pan and zoom update the SVG transform directly, and stop hover names use a lightweight tooltip instead of rerendering the stop layer.
+
+**Data and fare note:** Bus routes and ordered stop sequences come from a static community GTFS compilation. Bus segment times use scheduled stop-to-stop times from that feed; the app does not yet plan around the current clock, service calendar, or live departure. Mapped BRTS adult fare-zone pairs use the feed's fare products. When a bus fare is missing, YatraOne predicts it from straight-line stop distance multiplied by a 1.35 road-detour factor and a simple per-kilometre rate; it is a rough planning estimate, not an operator fare. Metro times and sample edge fares remain prototype values. Metro-to-bus walks are straight-line proximity estimates, not verified pedestrian paths or station entrances.
 
 ### Network illustration
 
-The map combines referenced Metro station sequences with simplified prototype bus corridors. This diagram is intentionally schematic: it omits stops for readability and does not represent geographic scale or complete live coverage.
+The diagram below is a compact Metro overview. The interactive map uses coordinates from the imported bus feed, overlays the locally clipped Sabarmati River geometry from OpenStreetMap relation [7717294](https://www.openstreetmap.org/relation/7717294), highlights active journey stops, and hides routine stop labels until hover or zoom. OpenStreetMap attribution is shown on the map.
 
 ```mermaid
 flowchart LR
@@ -75,14 +82,13 @@ flowchart LR
     MM["Mahatma Mandir"] --- AK["Akshardham"] --- SEC["Sector 1"] --- GNLU(("GNLU")) --- KG["Koba Gam"] --- MOT
     GNLU --- PDPU["PDPU"] --- GC["GIFT City"]
   end
-  OHC -. "walk transfer" .- BR["BRTS sample corridor"]
-  K -. "walk transfer" .- AM["AMTS sample stops"]
+  OHC -. "estimated nearby-stop walk" .- BR["BRTS + AMTS · 623 routes"]
   classDef metro fill:#38271B,stroke:#FF842E,color:#FFF7F0
   classDef bus fill:#26221E,stroke:#FFC18F,color:#FFF7F0
   classDef interchange fill:#5A3219,stroke:#FFB274,color:#fff
   class TG,T,DD,GU,ST,SH,GK,K,KE,VG,APMC,JP,PAL,GAND,USM,VAD,MM,AK,SEC,KG,PDPU,GC metro
   class OHC,MOT,GNLU interchange
-  class BR,AM bus
+  class BR bus
 ```
 
 ## Run locally
@@ -116,7 +122,7 @@ Restart the development server after saving the file. The assistant needs an int
 
 ## Fares and data honesty
 
-> **Are the fares real? No.** Current fare values are illustrative prototype data. The previously invented ₹5 multimodal discount is disabled. The estimate panel links to operator fare tools for checking current prices.
+> **Are the fares real? Not as an operator-confirmed trip quote.** Metro fares remain illustrative. Mapped BRTS zone pairs use adult fares from the community feed. For missing BRTS fares and AMTS, the app shows a predicted amount based on straight-line distance and a road-detour factor. Treat predictions as rough estimates and confirm prices with the [Janmarg fare checker](https://www.ahmedabadbrts.org/information/fare-chart/) or [AMTS ticketing](https://www.amts.co.in/ticketing/).
 
 - [GMRC Metro route and fare planner](https://www.gujaratmetrorail.com/ahmedabad/route-and-fares/)
 - [Ahmedabad BRTS fare checker](https://www.ahmedabadbrts.org/en/information/fare-chart/)
@@ -126,17 +132,19 @@ Google Maps links search for the selected stop. YatraOne does **not** import liv
 
 | Network | Included in this prototype | Current limitation |
 | --- | --- | --- |
-| **Metro** | Station sequences and graph links based on the referenced station directory | Coordinates, travel times, and fare edges need validation |
-| **BRTS** | A small set of sample corridors and stops | Not a complete stop inventory or route feed |
-| **AMTS** | Prototype stops and links | Not a current, complete route-by-route feed |
+| **Metro** | Prototype station graph with route and station naming based on GMRC material | Coordinates, travel times, and sample fare edges need validation |
+| **BRTS / AJL** | 149 routes, ordered stop patterns, coordinates, scheduled segment times, and adult fare-zone lookup where mapped | Community compilation, not live or operator-verified; fare estimate may be unavailable for unmapped stops |
+| **AMTS** | 474 routes, ordered stop patterns, coordinates, scheduled segment times, and distance-based fare predictions | Community compilation, not live; predictions are not operator quotes |
 
-YatraOne is a **hackathon prototype**, not a live passenger information service. Verify fares, service status, and route details with transit operators before travel. Bundled records are marked `prototype_unverified` where the source field is present.
+YatraOne is a **hackathon prototype**, not a live passenger information service. Verify fares, service status, and route details with transit operators before travel. The bus feed lists validity from 2026-09-30 through 2027-03-29 and was imported on 2026-10-11. Its source repository says the GTFS was compiled from AMTS and Ahmedabad Janmarg Limited websites; the feed publisher metadata says BLRTransit. Both details are preserved here; the dataset is not labeled as an official live feed.
 
 ### References
 
 - [GMRC Ahmedabad Metro](https://www.gujaratmetrorail.com/ahmedabad/route-and-fares/)
 - [Ahmedabad Janmarg / BRTS](https://www.ahmedabadbrts.org/en/plan/)
 - [AMTS](https://www.amts.co.in/)
+- [Ahmedabad AMTS / AJL community GTFS compilation](https://github.com/croyla/amd-gtfs) (attribution: source data credited to [AMTS](https://www.amts.co.in/) and [Ahmedabad Janmarg Limited](https://www.ahmedabadbrts.org/))
+- [Sabarmati River geometry](https://www.openstreetmap.org/relation/7717294) from [OpenStreetMap](https://www.openstreetmap.org/copyright), licensed under ODbL.
 - [Google Routes API: transit routes](https://developers.google.com/maps/documentation/routes/transit-route)
 - [Google Transit stop and station guidance](https://support.google.com/transitpartners/answer/6377423?hl=en)
 
@@ -144,22 +152,32 @@ YatraOne is a **hackathon prototype**, not a live passenger information service.
 
 Keep future feature requests and implementation plans here so the README remains the shared project roadmap.
 
-- [ ] Replace prototype coordinates with validated station and stand coordinates and real route shapes.
-- [ ] Import current BRTS and AMTS route numbers and ordered stops in both directions.
-- [ ] Add verified bus stand details: route numbers, nearby landmarks, platform or bay, accessibility, and operator links.
-- [ ] Add official fare lookups or a dated, verified fare table for each network.
-- [ ] Add service calendars, timetables, live arrivals, and clear data freshness labels.
-- [ ] Verify walking transfers between Metro stations and bus stands.
+- [x] Import bus route numbers, stop coordinates, ordered route patterns, and scheduled segment times from the dated community GTFS feed.
+- [x] Draw bus corridors from route stop sequences on the coordinate-based map and highlight the selected journey.
+- [x] Keep the citywide network quiet, reveal hovered stop names, and label only boarding, transfer, and destination stops on a selected trip.
+- [x] Position the Sabarmati using local OpenStreetMap river geometry and provide map attribution.
+- [x] Connect nearby bus and Metro stops using clearly labeled straight-line proximity estimates.
+- [x] Add searchable stop suggestions across the imported network.
+- [x] Show scheduled bus route numbers at stops with a link to the map.
+- [ ] Add verified bus stand landmarks, platform or bay, accessibility, and operator details.
+- [x] Integrate community-feed adult BRTS area-pair fares and clearly label predicted fares when the network fare is missing.
+- [x] Predict a clearly marked bus fare from stop distance when no fare is available; rank candidate trips by estimated cost.
+- [ ] Verify BRTS fare products and find an authoritative AMTS fare source before presenting fares as operator-confirmed.
+- [ ] Add time-of-day and service-calendar-aware departure planning, then live arrivals if an operator feed is available.
+- [ ] Verify pedestrian paths and entrance locations between Metro stations and bus stops.
 - [ ] Evaluate Google Maps Platform integration, including restricted keys, billing, and attribution.
-- [ ] Add a geographic map mode alongside the schematic network.
+- [x] Add the coordinate-based city network map with route filters and active-trip highlighting.
+- [x] Keep the full transit network visible with subdued route lines and small stop dots; focus labels on boarding, transfer, destination, or hovered stops at every zoom level.
+- [x] Draw AMTS route corridors without AMTS stop dots to reduce visual clutter.
+- [x] Lazy-load trip-only panels and memoize transit corridor geometry to reduce startup and map redraw work.
 
 ## Project structure
 
 ```text
 src/
-├── components/   # Map, stop details, journey cards, ticket estimate, timeline
-├── data/         # Stops, lines, sample connections, transfers, configuration
-├── engine/       # Graph search, fare estimate, startup validation
+├── components/   # Geographic map, stop search, trip details, fare disclosure
+├── data/         # Metro prototype plus imported GTFS bus graph, patterns, and metadata
+├── engine/       # Heap-based routing, fare status, startup validation
 └── security/     # Input sanitization and search rate limiting
 public/
 ├── images/       # Hero poster artwork

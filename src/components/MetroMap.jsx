@@ -1,42 +1,173 @@
-import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import stopsData from '../data/stops.json' with { type: 'json' };
 import linesData from '../data/lines.json' with { type: 'json' };
 import transfersData from '../data/transfers.json' with { type: 'json' };
 import connectionsData from '../data/connections.json' with { type: 'json' };
-import { stopsById } from '../engine/graph.js';
+import busPatterns from '../data/gtfs_bus_patterns.json' with { type: 'json' };
+import busStopIds from '../data/gtfs_bus_stop_ids.json' with { type: 'json' };
+import sabarmatiRiver from '../data/sabarmati_river.json' with { type: 'json' };
+import transitData from '../data/gtfs_metadata.json' with { type: 'json' };
+const stopsById = new Map(stopsData.map(stop => [stop.stop_id, stop]));
+const geoStops = stopsData.filter(stop => stop.source === 'community_gtfs');
+const geoBounds = {
+  minLon: Math.min(...geoStops.map(stop => stop.longitude)),
+  maxLon: Math.max(...geoStops.map(stop => stop.longitude)),
+  minLat: Math.min(...geoStops.map(stop => stop.latitude)),
+  maxLat: Math.max(...geoStops.map(stop => stop.latitude)),
+};
+const toMapPoint = ({ lon, lat }) => ({
+  x: 80 + (lon - geoBounds.minLon) / (geoBounds.maxLon - geoBounds.minLon) * 1480,
+  y: 80 + (geoBounds.maxLat - lat) / (geoBounds.maxLat - geoBounds.minLat) * 820,
+});
+const sabarmatiPaths = sabarmatiRiver.paths.map(path => path.map(toMapPoint));
+const sabarmatiPathD = sabarmatiPaths.map(path => `M ${path.map(point => `${point.x},${point.y}`).join(' L ')}`).join(' ');
+const riverLabelPoint = sabarmatiRiver.paths.flat().reduce((best, point) =>
+  Math.hypot(point.lon - 72.58, point.lat - 23.03) < Math.hypot(best.lon - 72.58, best.lat - 23.03) ? point : best
+);
+const riverLabelPosition = toMapPoint(riverLabelPoint);
+const brtsRouteCount = new Set(linesData.filter(line => line.mode === 'brts').map(line => line.route_id)).size;
+const amtsRouteCount = new Set(linesData.filter(line => line.mode === 'amts').map(line => line.route_id)).size;
+const metroSegments = connectionsData
+  .filter(edge => edge.transport_mode === 'metro' && edge.from_stop_id < edge.to_stop_id)
+  .map(edge => ({ edge, from: stopsById.get(edge.from_stop_id), to: stopsById.get(edge.to_stop_id) }))
+  .filter(({ from, to }) => from && to);
+const gtfsBusLines = linesData.filter(line => line.source === 'community_gtfs');
+const simplifyRoutePoints = (points, tolerance = 2) => {
+  if (points.length <= 2) return points;
+  const toleranceSquared = tolerance * tolerance;
+  const kept = new Uint8Array(points.length);
+  kept[0] = 1;
+  kept[points.length - 1] = 1;
+  const ranges = [[0, points.length - 1]];
+
+  while (ranges.length) {
+    const [start, end] = ranges.pop();
+    const first = points[start];
+    const last = points[end];
+    const dx = last.schematic_x - first.schematic_x;
+    const dy = last.schematic_y - first.schematic_y;
+    const lineLengthSquared = dx * dx + dy * dy;
+    let farthestIndex = -1;
+    let farthestDistanceSquared = toleranceSquared;
+
+    for (let index = start + 1; index < end; index++) {
+      const point = points[index];
+      const projection = lineLengthSquared === 0 ? 0 : Math.max(0, Math.min(1,
+        ((point.schematic_x - first.schematic_x) * dx + (point.schematic_y - first.schematic_y) * dy) / lineLengthSquared
+      ));
+      const nearestX = first.schematic_x + projection * dx;
+      const nearestY = first.schematic_y + projection * dy;
+      const deltaX = point.schematic_x - nearestX;
+      const deltaY = point.schematic_y - nearestY;
+      const distanceSquared = deltaX * deltaX + deltaY * deltaY;
+      if (distanceSquared > farthestDistanceSquared) {
+        farthestDistanceSquared = distanceSquared;
+        farthestIndex = index;
+      }
+    }
+
+    if (farthestIndex !== -1) {
+      kept[farthestIndex] = 1;
+      ranges.push([start, farthestIndex], [farthestIndex, end]);
+    }
+  }
+
+  return points.filter((_, index) => kept[index]);
+};
+const busRoutePaths = busPatterns.map(([lineIndex, directionId, stopIndexes]) => {
+  const route = gtfsBusLines[lineIndex];
+  const points = simplifyRoutePoints(stopIndexes.map(index => stopsById.get(busStopIds[index])).filter(Boolean));
+  return {
+    key: `${route?.line_id}-${directionId}`,
+    mode: route?.mode,
+    lineId: route?.line_id,
+    d: points.length > 1 ? `M ${points.map(stop => `${stop.schematic_x},${stop.schematic_y}`).join(' L ')}` : ''
+  };
+}).filter(pattern => pattern.d && (pattern.mode === 'brts' || pattern.mode === 'amts'));
+const TransitNetworkLayer = React.memo(function TransitNetworkLayer({ filterMode, hasJourney }) {
+  const isModeVisible = mode => filterMode !== 'route_only' && (filterMode === 'all' || filterMode === mode);
+  return <>
+    {isModeVisible('metro') && metroSegments.map(({ edge, from, to }) => {
+      const color = edge.line_id === 'LINE_METRO_EW' ? '#3B82F6'
+        : edge.line_id === 'LINE_METRO_NS' ? '#EF4444' : '#8B5CF6';
+      return <line key={`${edge.line_id}-${edge.from_stop_id}-${edge.to_stop_id}`}
+        x1={from.schematic_x} y1={from.schematic_y} x2={to.schematic_x} y2={to.schematic_y}
+        stroke={color} strokeWidth="8" strokeLinecap="round"
+        opacity={hasJourney ? 0.22 : 0.78} />;
+    })}
+    {busRoutePaths.filter(route => isModeVisible(route.mode)).map(route => (
+      <path key={route.key} d={route.d} fill="none"
+        stroke={route.mode === 'brts' ? '#10B981' : '#F59E0B'}
+        strokeWidth={route.mode === 'brts' ? 1.25 : 1.05}
+        strokeLinecap="round" strokeLinejoin="round"
+        opacity={hasJourney ? (route.mode === 'brts' ? 0.09 : 0.075) : route.mode === 'brts' ? 0.12 : 0.09} />
+    ))}
+  </>;
+});
 import { 
   ZoomIn, 
   ZoomOut, 
-  RotateCcw, 
-  Maximize2, 
-  Filter, 
-  Layers, 
-  Train, 
-  Bus, 
-  Footprints,
-  Compass
+  RotateCcw
 } from 'lucide-react';
 
 export default function MetroMap({ selectedJourney, onSelectStation, activeLang = 'bilingual' }) {
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [filterMode, setFilterMode] = useState('all'); // 'all', 'metro', 'brts', 'amts', 'route_only'
-  const [hoveredStation, setHoveredStation] = useState(null);
   const svgRef = useRef(null);
+  const mapWrapperRef = useRef(null);
+  const hoverTooltipRef = useRef(null);
+  const zoomRef = useRef(1);
+  const panRef = useRef({ x: 0, y: 0 });
+  const dragStartRef = useRef({ x: 0, y: 0 });
+
+  const applyMapTransform = () => {
+    if (!svgRef.current) return;
+    const { x, y } = panRef.current;
+    svgRef.current.style.transform = `translate(${x}px, ${y}px) scale(${zoomRef.current})`;
+  };
+
+  const positionHoverTooltip = (clientX, clientY) => {
+    const tooltip = hoverTooltipRef.current;
+    const wrapper = mapWrapperRef.current;
+    if (!tooltip || !wrapper || tooltip.style.display === 'none') return;
+    const bounds = wrapper.getBoundingClientRect();
+    const left = Math.min(clientX - bounds.left + 14, bounds.width - tooltip.offsetWidth - 8);
+    const top = Math.min(clientY - bounds.top + 14, bounds.height - tooltip.offsetHeight - 8);
+    tooltip.style.left = `${Math.max(8, left)}px`;
+    tooltip.style.top = `${Math.max(8, top)}px`;
+  };
+
+  const showStationTooltip = (event, stop) => {
+    const tooltip = hoverTooltipRef.current;
+    if (!tooltip) return;
+    const name = activeLang === 'gu' && stop.stop_name_gu ? stop.stop_name_gu : stop.stop_name;
+    tooltip.textContent = `${name} · ${stop.transport_mode.toUpperCase()}${stop.route_count ? ` · ${stop.route_count} routes` : ''}`;
+    tooltip.style.display = 'block';
+    positionHoverTooltip(event.clientX, event.clientY);
+  };
+
+  const hideStationTooltip = () => {
+    if (hoverTooltipRef.current) hoverTooltipRef.current.style.display = 'none';
+  };
 
   // Collect stops in active journey
   const journeyStopIds = [];
+  const journeyStopSet = new Set();
+  const routeEndpointIds = new Set();
+  const addJourneyStop = stopId => {
+    if (journeyStopSet.has(stopId)) return;
+    journeyStopSet.add(stopId);
+    journeyStopIds.push(stopId);
+  };
   if (selectedJourney) {
     for (const leg of selectedJourney.legs) {
-      if (!journeyStopIds.includes(leg.fromStop)) journeyStopIds.push(leg.fromStop);
+      routeEndpointIds.add(leg.fromStop);
+      routeEndpointIds.add(leg.toStop);
+      addJourneyStop(leg.fromStop);
       if (leg.intermediateStops) {
-        for (const mid of leg.intermediateStops) {
-          if (!journeyStopIds.includes(mid)) journeyStopIds.push(mid);
-        }
+        for (const mid of leg.intermediateStops) addJourneyStop(mid);
       }
-      if (!journeyStopIds.includes(leg.toStop)) journeyStopIds.push(leg.toStop);
+      addJourneyStop(leg.toStop);
     }
   }
 
@@ -73,10 +204,11 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
         const midY = (minY + maxY) / 2;
         
         // Gentle pan to center the active route
-        setPan({
+        panRef.current = {
           x: (800 - midX) * 0.5,
           y: (480 - midY) * 0.5
-        });
+        };
+        applyMapTransform();
       }
     }
   }, [journeyKey]);
@@ -85,37 +217,43 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
   const handleWheel = (e) => {
     e.preventDefault();
     const zoomFactor = e.deltaY < 0 ? 1.15 : 0.88;
-    setZoom(prev => Math.min(2.8, Math.max(0.65, prev * zoomFactor)));
+    zoomRef.current = Math.min(2.8, Math.max(0.65, zoomRef.current * zoomFactor));
+    applyMapTransform();
   };
 
   // Mouse drag handlers
   const handleMouseDown = (e) => {
     if (e.target.closest('.station-node-group') || e.target.closest('.map-control-btn')) return;
     setIsDragging(true);
-    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    dragStartRef.current = {
+      x: e.clientX - panRef.current.x,
+      y: e.clientY - panRef.current.y
+    };
   };
 
   const handleMouseMove = (e) => {
     if (!isDragging) return;
-    setPan({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y
-    });
+    panRef.current = {
+      x: e.clientX - dragStartRef.current.x,
+      y: e.clientY - dragStartRef.current.y
+    };
+    applyMapTransform();
   };
 
   const handleMouseUp = () => {
     setIsDragging(false);
+    hideStationTooltip();
   };
 
   const handleResetView = () => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
+    zoomRef.current = 1;
+    panRef.current = { x: 0, y: 0 };
+    applyMapTransform();
   };
 
-  const isModeVisible = (mode) => {
-    if (filterMode === 'route_only') return false;
-    if (filterMode === 'all') return true;
-    return filterMode === mode;
+  const handleZoomBy = factor => {
+    zoomRef.current = Math.min(2.8, Math.max(0.65, zoomRef.current * factor));
+    applyMapTransform();
   };
 
   const isStationVisible = (stop) => {
@@ -130,24 +268,16 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
     amts: '#F59E0B',
   };
 
-  // Draw each rail segment between adjacent stops from the routing graph.
-  // This keeps the displayed sequence in sync with the route planner instead
-  // of drawing a single straight corridor through unrelated stations.
-  const metroSegments = connectionsData
-    .filter(edge => edge.transport_mode === 'metro' && edge.from_stop_id < edge.to_stop_id)
-    .map(edge => ({ edge, from: stopsById.get(edge.from_stop_id), to: stopsById.get(edge.to_stop_id) }))
-    .filter(({ from, to }) => from && to);
-
   // Only show transfers when all modes are visible (multi-mode context)
   const showTransfers = filterMode === 'all' || filterMode === 'route_only';
 
   return (
-    <div className="metro-map-wrapper">
+    <div className="metro-map-wrapper" ref={mapWrapperRef}>
       {/* Map Interactive Toolbar */}
       <div className="map-toolbar">
         <button
           className="map-control-btn"
-          onClick={() => setZoom(prev => Math.min(2.8, prev * 1.2))}
+          onClick={() => handleZoomBy(1.2)}
           title="Zoom in"
           aria-label="Zoom in"
         >
@@ -155,7 +285,7 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
         </button>
         <button
           className="map-control-btn"
-          onClick={() => setZoom(prev => Math.max(0.65, prev * 0.82))}
+          onClick={() => handleZoomBy(0.82)}
           title="Zoom out"
           aria-label="Zoom out"
         >
@@ -211,7 +341,7 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
           style={{
             width: '100%',
             height: '100%',
-            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transform: 'translate(0px, 0px) scale(1)',
             transformOrigin: 'center center',
             transition: isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
           }}
@@ -246,27 +376,18 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
             <line x1="540" y1="0" x2="540" y2="980" />
           </g>
 
+          <g className="map-area-labels" aria-hidden="true">
+            <text x="245" y="475">WEST AHMEDABAD</text>
+            <text x="770" y="455">OLD CITY</text>
+            <text x="1265" y="470">EAST AHMEDABAD</text>
+            <text x="1265" y="125">GANDHINAGAR</text>
+          </g>
+
           {/* 2. Sabarmati River Water Ribbon (Meandering geographic landmark) */}
           <g id="sabarmati-river-corridor">
-            <path
-              d="M 690 0 C 680 180, 650 360, 620 540 C 600 660, 580 820, 560 980"
-              stroke="url(#river-gradient)"
-              strokeWidth="54"
-              strokeLinecap="round"
-              fill="none"
-            />
-            <path
-              d="M 690 0 C 680 180, 650 360, 620 540 C 600 660, 580 820, 560 980"
-              stroke="#0284C7"
-              strokeWidth="3"
-              strokeDasharray="12 8"
-              fill="none"
-              opacity="0.4"
-            />
-            {/* River Label */}
-            <text x="635" y="220" fill="#38BDF8" fontSize="13" fontWeight="700" letterSpacing="0.1em" opacity="0.6" transform="rotate(78 635 220)">
-              SABARMATI RIVER · સાબરમતી નદી
-            </text>
+            <path d={sabarmatiPathD} stroke="url(#river-gradient)" strokeWidth="26" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity=".6" />
+            <path d={sabarmatiPathD} stroke="#38BDF8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity=".72" />
+            <text x={riverLabelPosition.x + 12} y={riverLabelPosition.y - 8} className="river-map-label">SABARMATI RIVER · સાબરમતી નદી</text>
           </g>
 
           {/* 3. Walking Transfer Connectors (thin dotted lines) — only in all-mode view */}
@@ -277,7 +398,7 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
                 const s2 = stopsById.get(tr.to_stop_id);
                 if (!s1 || !s2 || tr.from_stop_id > tr.to_stop_id) return null;
 
-                const isPartOfActiveTrip = journeyStopIds.includes(tr.from_stop_id) && journeyStopIds.includes(tr.to_stop_id);
+                const isPartOfActiveTrip = journeyStopSet.has(tr.from_stop_id) && journeyStopSet.has(tr.to_stop_id);
 
                 return (
                   <g key={`tr-${idx}`}>
@@ -318,90 +439,8 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
           )}
 
           {/* 4. Base Transit Network Lines */}
-          {isModeVisible('metro') && metroSegments.map(({ edge, from, to }) => {
-            const color = edge.line_id === 'LINE_METRO_EW' ? '#3B82F6'
-              : edge.line_id === 'LINE_METRO_NS' ? '#EF4444' : '#8B5CF6';
-            return <line key={`${edge.line_id}-${edge.from_stop_id}-${edge.to_stop_id}`}
-              x1={from.schematic_x} y1={from.schematic_y} x2={to.schematic_x} y2={to.schematic_y}
-              stroke={color} strokeWidth="8" strokeLinecap="round"
-              opacity={selectedJourney ? 0.35 : 0.85} />;
-          })}
-
-          {/* BRTS Janmarg Trunk Lines (Emerald Green) */}
-          {isModeVisible('brts') && (
-            <>
-              {/* West Ring: Ghuma -> Bopal -> ISKCON -> Shivranjani -> Jaymangal -> Ranip -> RTO */}
-              <path
-                d="M 60 720 L 320 720 L 390 390 L 460 310 L 460 220"
-                stroke="#10B981"
-                strokeWidth="7"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                markerMid="url(#brts-chevron)"
-                fill="none"
-                opacity={selectedJourney ? 0.35 : 0.8}
-              />
-              {/* Central Trunk: Old High Court -> Townhall -> Geeta Mandir -> Maninagar */}
-              <path
-                d="M 460 310 L 460 560 L 620 650 L 820 720 L 1000 730"
-                stroke="#10B981"
-                strokeWidth="7"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-                opacity={selectedJourney ? 0.35 : 0.8}
-              />
-              {/* Kalupur Radial & Naroda Connect */}
-              <path
-                d="M 900 500 L 820 720"
-                stroke="#10B981"
-                strokeWidth="6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-                opacity={selectedJourney ? 0.3 : 0.75}
-              />
-              <path
-                d="M 900 500 L 1240 380"
-                stroke="#10B981"
-                strokeWidth="6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-                opacity={selectedJourney ? 0.3 : 0.75}
-              />
-            </>
-          )}
-
-          {/* AMTS Feeder Network (Amber Dashed Lines) */}
-          {isModeVisible('amts') && (
-            <>
-              <path
-                d="M 140 440 L 140 560"
-                stroke="#F59E0B"
-                strokeWidth="5"
-                strokeDasharray="8 6"
-                fill="none"
-                opacity={selectedJourney ? 0.35 : 0.85}
-              />
-              <path
-                d="M 320 620 L 410 630 L 730 640 L 820 720 L 920 720"
-                stroke="#F59E0B"
-                strokeWidth="5"
-                strokeDasharray="8 6"
-                fill="none"
-                opacity={selectedJourney ? 0.35 : 0.85}
-              />
-              <path
-                d="M 460 90 L 460 220"
-                stroke="#F59E0B"
-                strokeWidth="5"
-                strokeDasharray="8 6"
-                fill="none"
-                opacity={selectedJourney ? 0.35 : 0.85}
-              />
-            </>
-          )}
+          {/* Memoized corridor layer avoids rebuilding more than 900 route paths on hover and zoom. */}
+          <TransitNetworkLayer filterMode={filterMode} hasJourney={Boolean(selectedJourney)} />
 
           {/* 5. Highlight each ride and walking transfer as its own path */}
           {activeLegPaths.map(leg => (
@@ -445,8 +484,14 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
           {stopsData.filter(isStationVisible).map(stop => {
             const isSelectedOrigin = selectedJourney && selectedJourney.originStop.stop_id === stop.stop_id;
             const isSelectedDest = selectedJourney && selectedJourney.destStop.stop_id === stop.stop_id;
-            const isTripStop = journeyStopIds.includes(stop.stop_id);
+            const isTripStop = journeyStopSet.has(stop.stop_id);
+            const isRouteEndpoint = routeEndpointIds.has(stop.stop_id);
             const isInterchange = stop.is_interchange;
+            const isAmtsStop = stop.transport_mode === 'amts';
+            const showLabel = selectedJourney && isRouteEndpoint;
+            const dotOpacity = isTripStop ? 1
+              : stop.transport_mode === 'metro' ? 0.88
+                : isInterchange ? 0.72 : 0.42;
 
             // Stop Mode Colors
             const modeColor = stop.transport_mode === 'metro'
@@ -482,39 +527,43 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
               <g
                 key={stop.stop_id}
                 className="station-node-group"
+                opacity={dotOpacity}
                 onClick={() => onSelectStation(stop)}
-                onMouseEnter={() => setHoveredStation(stop)}
-                onMouseLeave={() => setHoveredStation(null)}
+                onMouseEnter={event => showStationTooltip(event, stop)}
+                onMouseLeave={hideStationTooltip}
                 style={{ cursor: 'pointer' }}
                 role="button"
                 tabIndex={0}
               >
+                <title>{stop.stop_name} · {stop.transport_mode.toUpperCase()}{stop.route_count ? ` · ${stop.route_count} routes` : ''}</title>
+                {isAmtsStop && <circle cx={stop.schematic_x} cy={stop.schematic_y} r="8" fill="transparent" />}
+                {!isAmtsStop && <>
                 {/* Station Node Graphic */}
-                {isInterchange ? (
+                  {stop.transport_mode === 'metro' && isInterchange ? (
                   <>
                     <circle
                       cx={stop.schematic_x}
                       cy={stop.schematic_y}
-                      r={isTripStop ? 11 : 9}
+                      r={isRouteEndpoint ? 7 : isTripStop ? 4.5 : 3.1}
                       fill="#060B18"
-                      stroke="#FFFFFF"
-                      strokeWidth="3.5"
+                      stroke={isRouteEndpoint ? '#FFFFFF' : modeColor}
+                      strokeWidth={isRouteEndpoint ? '2.5' : '1.4'}
                     />
                     <circle
                       cx={stop.schematic_x}
                       cy={stop.schematic_y}
-                      r={isTripStop ? 5.5 : 4}
+                      r={isRouteEndpoint ? 3.2 : isTripStop ? 2.2 : 1.6}
                       fill={modeColor}
                     />
                   </>
                 ) : (
-                  <circle
+                    <circle
                     cx={stop.schematic_x}
                     cy={stop.schematic_y}
-                    r={isTripStop ? 7.5 : 5}
+                      r={isRouteEndpoint ? 5.2 : isTripStop ? 3.7 : stop.transport_mode === 'metro' ? 2.8 : isInterchange ? 2.4 : 1.35}
                     fill={isTripStop ? '#FFFFFF' : '#070D1E'}
                     stroke={modeColor}
-                    strokeWidth="3"
+                      strokeWidth={isRouteEndpoint ? 2.1 : isTripStop ? 1.5 : stop.transport_mode === 'metro' ? 1.4 : isInterchange ? 1.2 : 0.7}
                   />
                 )}
 
@@ -523,10 +572,10 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
                   <circle
                     cx={stop.schematic_x}
                     cy={stop.schematic_y}
-                    r="16"
+                    r="10"
                     fill="none"
                     stroke="#38BDF8"
-                    strokeWidth="3.5"
+                    strokeWidth="2.5"
                     strokeDasharray="4 3"
                   />
                 )}
@@ -536,30 +585,35 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
                   <circle
                     cx={stop.schematic_x}
                     cy={stop.schematic_y}
-                    r="15"
+                    r="9"
                     fill="#EF4444"
                     stroke="#FFFFFF"
-                    strokeWidth="3"
+                    strokeWidth="2.2"
                   />
                 )}
+                </>}
 
                 {/* Text Label with readable background contrast halo */}
-                <g opacity={isTripStop ? 1 : 0.85}>
+                {showLabel && <g opacity={isTripStop ? 1 : 0.85}>
                   <text
                     x={labelX}
                     y={labelY}
                     textAnchor={textAnchor}
                     fill={isTripStop ? '#FFFFFF' : '#E2E8F0'}
-                    fontSize={isInterchange ? '11.5' : '10.5'}
-                    fontWeight={isTripStop || isInterchange ? '700' : '500'}
+                    fontSize={selectedJourney ? '13' : isInterchange ? '11.5' : '10.5'}
+                    fontWeight={selectedJourney || isTripStop || isInterchange ? '700' : '500'}
                     fontFamily="system-ui, -apple-system, sans-serif"
                     style={{
-                      textShadow: '0 1px 4px rgba(0,0,0,0.8), 0 0 2px #060B18'
+                    textShadow: '0 1px 4px rgba(0,0,0,0.8), 0 0 2px #060B18',
+                    paintOrder: 'stroke',
+                    stroke: '#071018',
+                    strokeWidth: selectedJourney ? 5 : 3,
+                    strokeLinejoin: 'round'
                     }}
                   >
                     {activeLang === 'gu' && stop.stop_name_gu ? stop.stop_name_gu : stop.stop_name}
                   </text>
-                  {activeLang === 'bilingual' && stop.stop_name_gu && (
+                  {!selectedJourney && activeLang === 'bilingual' && stop.stop_name_gu && (
                     <text
                       x={labelX}
                       y={labelY + 11}
@@ -574,19 +628,31 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
                       {stop.stop_name_gu}
                     </text>
                   )}
-                </g>
+                </g>}
               </g>
             );
           })}
         </svg>
       </div>
 
+      <div ref={hoverTooltipRef} className="map-hover-tooltip" role="tooltip" style={{ display: 'none' }} />
+
       {/* Modern Transit Map Legend (Corner Overlay) */}
-      <div className="map-legend">
+      <div className={`map-legend${selectedJourney ? ' map-legend-route-focus' : ''}`}>
         <div className="map-legend-title">
-          Ahmedabad Transit Corridors
+          {selectedJourney ? (activeLang === 'gu' ? 'તમારો પસંદ કરેલો માર્ગ' : 'Selected route') : 'Ahmedabad Transit Corridors'}
+          {!selectedJourney && <small style={{ display: 'block', marginTop: 3, color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 500 }}>
+            Static bus feed through {transitData.validity_end.slice(0, 4)}-{transitData.validity_end.slice(4, 6)}-{transitData.validity_end.slice(6)}
+          </small>}
         </div>
         <div className="map-legend-grid">
+          {selectedJourney ? <>
+            {selectedJourney.modesUsed.map(mode => <React.Fragment key={mode}>
+              <span style={{ width: 14, height: 4, background: mode === 'metro' ? '#3B82F6' : mode === 'brts' ? '#10B981' : '#F59E0B', borderRadius: 2 }} />
+              <span>{mode.toUpperCase()}</span>
+            </React.Fragment>)}
+            <span style={{ gridColumn: '1 / -1', color: 'var(--text-muted)' }}>Only boarding, transfer, and destination stops are labeled.</span>
+          </> : <>
           <span style={{ width: 14, height: 4, background: '#3B82F6', borderRadius: 2 }} />
           <span>Metro East-West (Thaltej ➔ Vastral)</span>
 
@@ -597,18 +663,21 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
           <span>Metro Phase 2 (GIFT City & Gandhinagar)</span>
 
           <span style={{ width: 14, height: 4, background: '#10B981', borderRadius: 2 }} />
-          <span>Janmarg BRTS Trunk Network</span>
+          <span>Janmarg BRTS · {brtsRouteCount} routes</span>
 
           <span style={{ width: 14, height: 4, background: '#F59E0B', borderTop: '1px dashed #F59E0B' }} />
-          <span>AMTS City Feeder Lines</span>
+          <span>AMTS · {amtsRouteCount} routes</span>
 
           <span style={{ width: 10, height: 10, borderRadius: '50%', border: '2px solid #FFFFFF', background: '#060B18' }} />
           <span>Multimodal Interchange Hub</span>
 
-          <span style={{ width: 14, height: 4, background: '#0284C7', borderRadius: 2 }} />
-          <span>Sabarmati River Ribbon</span>
+          <span style={{ width: 14, height: 4, background: 'rgba(255,255,255,.32)', borderRadius: 2 }} />
+          <span>Faint lines show bus routes · hover for a stop name</span>
+          </>}
         </div>
+        <a className="map-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors · river geometry</a>
       </div>
     </div>
   );
 }
+

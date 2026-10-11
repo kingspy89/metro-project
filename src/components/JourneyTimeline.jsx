@@ -1,7 +1,9 @@
 import React from 'react';
-import { stopsById } from '../engine/graph.js';
+import stopsData from '../data/stops.json' with { type: 'json' };
 import { Train, Bus, Footprints, AlertTriangle, ArrowRight } from 'lucide-react';
 import { translate } from '../i18n.js';
+
+const stopsById = new Map(stopsData.map(stop => [stop.stop_id, stop]));
 
 export default function JourneyTimeline({ journey, lang = 'en' }) {
   if (!journey) return null;
@@ -29,11 +31,12 @@ export default function JourneyTimeline({ journey, lang = 'en' }) {
           return (
             <div key={`leg-${idx}`} className="timeline-step">
               <div className="step-num-badge walk">
-                <Footprints size={18} />
+                {leg.isRouteChange ? <Bus size={18} /> : <Footprints size={18} />}
               </div>
 
               <div className="step-main">
-                <div className="step-instruction">
+                {leg.isRouteChange && <div className="step-instruction">{t('Change to route')} {leg.routeShortName || leg.mode?.toUpperCase()} {lang === 'gu' ? 'પર' : 'at'} {fromStop?.stop_name}</div>}
+                <div className="step-instruction" style={leg.isRouteChange ? { display: 'none' } : undefined}>
                   {lang === 'gu' ? `${fromStop?.stop_name_gu || fromStop?.stop_name} પર ઉતરો. ${leg.walkingDistanceM} મીટર ચાલીને ${toStop?.stop_name_gu || toStop?.stop_name} પહોંચો` : `Alight at ${fromStop?.stop_name}. Walk ${leg.walkingDistanceM} m to ${toStop?.stop_name}`}
                 </div>
                 <div className="step-meta">
@@ -67,14 +70,14 @@ export default function JourneyTimeline({ journey, lang = 'en' }) {
 
             <div className="step-main">
               <div className="step-instruction">
-                {lang === 'gu' ? `${fromStop?.stop_name_gu || fromStop?.stop_name} પરથી ${leg.mode.toUpperCase()}માં બેસો અને ${leg.stopCount} સ્ટેશન પછી ${toStop?.stop_name_gu || toStop?.stop_name} ઉતરો` : `Board ${leg.mode.toUpperCase()} at ${fromStop?.stop_name} — ride ${leg.stopCount} ${leg.stopCount === 1 ? 'stop' : 'stops'} to ${toStop?.stop_name}`}
+                  {lang === 'gu' ? `${fromStop?.stop_name_gu || fromStop?.stop_name} પરથી ${leg.mode.toUpperCase()} ${leg.routeShortName ? `રૂટ ${leg.routeShortName} ` : ''}માં બેસો અને ${leg.stopCount} સ્ટેશન પછી ${toStop?.stop_name_gu || toStop?.stop_name} ઉતરો` : `Board ${leg.mode.toUpperCase()}${leg.routeShortName ? ` route ${leg.routeShortName}` : leg.routeLongName ? ` (${leg.routeLongName})` : ''} at ${fromStop?.stop_name} — ride ${leg.stopCount} ${leg.stopCount === 1 ? 'stop' : 'stops'} to ${toStop?.stop_name}`}
               </div>
               <div className="step-meta">
                 <span>⏱ {leg.durationMinutes} {lang === 'gu' ? 'મિનિટ મુસાફરી' : 'min in-vehicle'}</span>
                 <span>•</span>
                 <span>📏 {leg.distanceKm?.toFixed(1)} km</span>
                 <span>•</span>
-                <span>{lang === 'gu' ? 'નમૂનાનું ભાડું:' : 'Sample edge-fare sum:'} ₹{leg.fare.toFixed(2)}</span>
+                <span>{leg.fareKnown ? `${leg.mode === 'metro' ? (lang === 'gu' ? 'નમૂનાનું ભાડું:' : 'Sample fare:') : (lang === 'gu' ? 'ફીડ ભાડું:' : 'Feed fare:')} ₹${leg.fare.toFixed(2)}` : leg.fareEstimated ? `${t('Predicted fare')}: ₹${leg.fare.toFixed(2)}` : t('Fare not available')}</span>
               </div>
             </div>
 

@@ -4,6 +4,13 @@ import { translate } from '../i18n.js';
 
 export default function DepartureBoard({ journeys, selectedJourney, onSelectJourney, preference, isSingleRouteOnly, lang = 'en' }) {
   const t = text => translate(text, lang);
+  const fareLabel = journey => {
+    const fare = journey.fareBreakdown;
+    if (fare.isComplete) return `₹${fare.unifiedPrice.toFixed(2)}`;
+    if (fare.estimatedSubtotal > 0) return `₹${fare.estimatedTotal.toFixed(2)}`;
+    if (fare.totalStandalone > 0) return `₹${fare.totalStandalone.toFixed(2)} + ${t('bus fare unavailable')}`;
+    return t('Fare unavailable');
+  };
   if (!journeys || journeys.length === 0) {
     return null;
   }
@@ -20,6 +27,12 @@ export default function DepartureBoard({ journeys, selectedJourney, onSelectJour
             {t('Note: Single optimal connection in sample network')}
           </span>
         )}
+        {journeys.some(journey => !journey.fareBreakdown.isComplete) && (
+          <span className="config-tag" style={{ color: '#FDBA74' }}>{t('Predicted bus fares use distance only; confirm with the operator.')}</span>
+        )}
+        {preference === 'cheapest' && journeys.every(journey => !journey.fareBreakdown.isComplete) && (
+          <span className="config-tag" style={{ color: '#FDBA74' }}>{t('Routes are ranked by predicted fare; values are estimates.')}</span>
+        )}
       </div>
 
       <div className="flap-card-grid">
@@ -33,7 +46,7 @@ export default function DepartureBoard({ journeys, selectedJourney, onSelectJour
               onClick={() => onSelectJourney(j)}
               role="button"
               tabIndex={0}
-              aria-label={`Journey ${j.tags.join(' ')}: ${j.totalTimeMinutes} minutes, ₹${j.fareBreakdown.unifiedPrice}`}
+              aria-label={`Journey ${j.tags.join(' ')}: ${j.totalTimeMinutes} minutes, ${fareLabel(j)}`}
             >
               <div className="card-top-row">
                 <div className="badge-group">
@@ -65,8 +78,8 @@ export default function DepartureBoard({ journeys, selectedJourney, onSelectJour
                   <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginLeft: '4px' }}>min</span>
                 </div>
                 <div>
-                  <span className="fare-val">₹{j.fareBreakdown.unifiedPrice.toFixed(2)}</span>
-                  <span className="fare-est">({t('sample')})</span>
+                  <span className="fare-val">{fareLabel(j)}</span>
+                  <span className="fare-est">({j.fareBreakdown.isComplete ? t('sample') : j.fareBreakdown.estimatedSubtotal > 0 ? t('predicted') : t('partial fare')})</span>
                 </div>
               </div>
 
@@ -83,7 +96,7 @@ export default function DepartureBoard({ journeys, selectedJourney, onSelectJour
                         )}
                         <span className={`mini-line-bar ${leg.mode}`} />
                         <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
-                          {leg.mode}
+                          {leg.routeShortName ? `${leg.mode} ${leg.routeShortName}` : leg.mode}
                         </span>
                       </div>
                     ) : (
