@@ -1,8 +1,10 @@
 import React from 'react';
 import { X, ShieldCheck, Database, Lock, Globe, FileText, Info } from 'lucide-react';
 import configData from '../data/config.json' with { type: 'json' };
+import { translate } from '../i18n.js';
 
-export default function DataTransparencyModal({ onClose }) {
+export default function DataTransparencyModal({ onClose, lang = 'en' }) {
+  const t = text => translate(text, lang);
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
       <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -12,9 +14,9 @@ export default function DataTransparencyModal({ onClose }) {
               <Database size={22} />
             </div>
             <div>
-              <span className="section-label">Data Transparency & Governance</span>
+              <span className="section-label">{t('Data Transparency & Governance')}</span>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-bright)' }}>
-                About This Data & Security Policies
+                {lang === 'gu' ? 'આ ડેટા અને સુરક્ષા નીતિઓ વિશે' : 'About This Data & Security Policies'}
               </h3>
             </div>
           </div>
@@ -26,16 +28,16 @@ export default function DataTransparencyModal({ onClose }) {
 
         {/* PRD Data Honesty Disclosure */}
         <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)', padding: 14, borderRadius: 10, color: '#FCD34D', fontSize: '0.86rem' }}>
-          <strong>Data Honesty Rule (PRD v2):</strong>
+          <strong>{lang === 'gu' ? 'ડેટા સચોટતા નિયમ:' : 'Data Honesty Rule (PRD v2):'}</strong>
           <p style={{ marginTop: 4 }}>
-            All stops, fares, durations, and transfer distances in this prototype are illustrative sample data unless verified against official sources. Fares and revenue splits reflect mathematical models rather than an approved commercial agreement.
+            {lang === 'gu' ? 'આ પ્રોટોટાઇપના સ્ટોપ, ભાડા, સમય અને ટ્રાન્સફર અંતર સત્તાવાર સ્ત્રોતથી ચકાસ્યા ન હોય ત્યાં સુધી માત્ર ઉદાહરણરૂપ ડેટા છે. ભાડા અને આવકના હિસ્સા ગાણિતિક મોડેલ છે, મંજૂર વ્યાવસાયિક કરાર નથી.' : 'All stops, fares, durations, and transfer distances in this prototype are illustrative sample data unless verified against official sources. Fares and revenue splits reflect mathematical models rather than an approved commercial agreement.'}
           </p>
         </div>
 
         {/* Configuration Assumptions */}
         <div>
           <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-bright)', marginBottom: 8 }}>
-            Core Planner Assumptions (config.json)
+            {lang === 'gu' ? 'મુસાફરી આયોજનની ધારણાઓ' : 'Core Planner Assumptions (config.json)'}
           </h4>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: '0.82rem' }}>
             <div style={{ background: 'var(--bg-card)', padding: 10, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
@@ -57,9 +59,9 @@ export default function DataTransparencyModal({ onClose }) {
               </div>
             </div>
             <div style={{ background: 'var(--bg-card)', padding: 10, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
-              <div style={{ color: 'var(--text-muted)' }}>Unified Subsidy Discount:</div>
+              <div style={{ color: 'var(--text-muted)' }}>Sample Integration Discount:</div>
               <div style={{ fontWeight: 600, color: '#34D399' }}>
-                ₹{configData.unified_discount.toFixed(2)} flat integration incentive
+                ₹{configData.unified_discount.toFixed(2)} (disabled; not an operator fare)
               </div>
             </div>
           </div>
@@ -71,7 +73,7 @@ export default function DataTransparencyModal({ onClose }) {
         {/* Security, Resilience & Privacy Governance */}
         <div>
           <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-bright)', marginBottom: 8 }}>
-            Security & Privacy Compliance (DPDP & GDPR)
+            {lang === 'gu' ? 'સુરક્ષા અને ગોપનીયતા' : 'Security & Privacy Compliance (DPDP & GDPR)'}
           </h4>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: '0.82rem' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>

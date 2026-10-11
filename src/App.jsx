@@ -15,6 +15,8 @@ import ControlRoom from './components/ControlRoom.jsx';
 import StationDetailModal from './components/StationDetailModal.jsx';
 import DataTransparencyModal from './components/DataTransparencyModal.jsx';
 import SecurityStatusBar from './components/SecurityStatusBar.jsx';
+import TripAssistant from './components/TripAssistant.jsx';
+import { translate } from './i18n.js';
 
 import { 
   Sun, 
@@ -33,7 +35,8 @@ import {
 export default function App() {
   // Theme & Language State
   const [theme, setTheme] = useState('dark');
-  const [activeLang, setActiveLang] = useState('bilingual'); // 'en', 'gu', 'bilingual'
+  const [activeLang, setActiveLang] = useState('en');
+  const t = text => translate(text, activeLang);
 
   // Route Planning State (Default seeded demo: Thaltej -> Kankaria Lake)
   const [originStopId, setOriginStopId] = useState('M_EW_02');
@@ -75,10 +78,16 @@ export default function App() {
   const handleExecuteSearch = (origId, dstId, pref) => {
     setSearchError(null);
     setRateLimitNotice(null);
+    const clearStaleJourney = () => {
+      setJourneys([]);
+      setSelectedJourney(null);
+      setIsSingleRouteOnly(false);
+    };
 
     // Rate Limiter Check (Defense against spam/DoS)
     const rateCheck = searchRateLimiter.isAllowed();
     if (!rateCheck.allowed) {
+      clearStaleJourney();
       setRateLimitNotice(`Rate Limit: Too many searches. Please wait ${rateCheck.retryAfterMs / 1000}s.`);
       return;
     }
@@ -86,14 +95,14 @@ export default function App() {
     // Input Validation
     const allStopIds = new Set(stopsData.map(s => s.stop_id));
     if (!validateStopId(origId, allStopIds) || !validateStopId(dstId, allStopIds)) {
+      clearStaleJourney();
       setSearchError("Invalid station identifier selected.");
       return;
     }
 
     if (origId === dstId) {
       setSearchError("Origin and destination stations cannot be the same. Please choose two distinct locations.");
-      setJourneys([]);
-      setSelectedJourney(null);
+      clearStaleJourney();
       return;
     }
 
@@ -114,8 +123,9 @@ export default function App() {
     } else if (pref === 'cheapest') {
       sorted.sort((a, b) => a.fareBreakdown.unifiedPrice - b.fareBreakdown.unifiedPrice);
     } else {
-      // Balanced: Prioritize 3-mode or optimal trade-off
-      sorted.sort((a, b) => (b.isThreeModeTrip ? 1 : 0) - (a.isThreeModeTrip ? 1 : 0));
+      // Rank by the route planner's additive balanced score; mode count alone
+      // should not make an itinerary look better.
+      sorted.sort((a, b) => a.balancedScore - b.balancedScore);
     }
 
     setJourneys(sorted);
@@ -143,7 +153,7 @@ export default function App() {
   };
 
   return (
-    <div className="app-container">
+    <div className="app-container" lang={activeLang === 'gu' ? 'gu' : 'en'}>
       {/* Top Station Signage Header */}
       <header className="station-header">
         <div className="brand-wrapper">
@@ -158,7 +168,7 @@ export default function App() {
               <span className="brand-city">Ahmedabad</span>
             </div>
             <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-              One journey. Three networks. Drawn like a metro map.
+              {t('One journey. Three networks. Drawn like a metro map.')}
             </div>
           </div>
         </div>
@@ -167,7 +177,7 @@ export default function App() {
           {/* Tunnel Offline Indicator per PRD Section 6.3 */}
           <div className="offline-pill" title="Works completely offline without network calls">
             <span className="offline-pulse" />
-            <span>Planning underground — no internet needed</span>
+            <span>{t('Planning underground — no internet needed')}</span>
           </div>
 
           {/* Operator Control Room Toggle */}
@@ -177,7 +187,7 @@ export default function App() {
             title="Toggle Operator Control Room"
           >
             <Sliders size={15} />
-            <span>Control Room</span>
+            <span>{t('Control Room')}</span>
           </button>
 
           {/* Data Transparency Sheet Button */}
@@ -187,21 +197,18 @@ export default function App() {
             title="About this data & transparency"
           >
             <Info size={15} />
-            <span>About Data</span>
+            <span>{t('About Data')}</span>
           </button>
 
           {/* Language Toggle */}
           <button
             className="icon-btn"
-            onClick={() => {
-              if (activeLang === 'bilingual') setActiveLang('en');
-              else if (activeLang === 'en') setActiveLang('gu');
-              else setActiveLang('bilingual');
-            }}
+            onClick={() => setActiveLang(activeLang === 'en' ? 'gu' : 'en')}
             title="Switch Language (English / Gujarati / Bilingual)"
+            aria-label={t('Switch language')}
           >
             <Languages size={15} />
-            <span>{activeLang === 'bilingual' ? 'EN + ગુજ' : activeLang === 'gu' ? 'ગુજરાતી' : 'English'}</span>
+            <span>{activeLang === 'gu' ? 'ગુજરાતી' : 'English'}</span>
           </button>
 
           {/* Daylight / Station Board Theme Toggle */}
@@ -236,6 +243,7 @@ export default function App() {
         onChangePreference={handlePreferenceChange}
         onSearch={() => handleExecuteSearch(originStopId, destStopId, preference)}
         onPickPopular={handlePickPopular}
+        lang={activeLang}
       />
 
       {/* Search or Rate Limit Warnings */}
@@ -269,6 +277,7 @@ export default function App() {
           onSelectJourney={setSelectedJourney}
           preference={preference}
           isSingleRouteOnly={isSingleRouteOnly}
+          lang={activeLang}
         />
       )}
 
@@ -277,9 +286,9 @@ export default function App() {
         <div className="hero-map-section" id="hero-map-screen">
           <div className="hero-title-bar">
             <div>
-              <span className="section-label">Screen 3 — Hero Journey Map</span>
+              <span className="section-label">{t('Screen 3 — Hero Journey Map')}</span>
               <h2 className="section-headline">
-                {selectedJourney.originStop.stop_name} ➔ {selectedJourney.destStop.stop_name}
+                {activeLang === 'gu' ? (selectedJourney.originStop.stop_name_gu || selectedJourney.originStop.stop_name) : selectedJourney.originStop.stop_name} ➔ {activeLang === 'gu' ? (selectedJourney.destStop.stop_name_gu || selectedJourney.destStop.stop_name) : selectedJourney.destStop.stop_name}
               </h2>
             </div>
 
@@ -288,7 +297,7 @@ export default function App() {
                 {selectedJourney.modesUsed.map(m => m.toUpperCase()).join(' + ')}
               </span>
               <span className="config-tag">
-                {selectedJourney.totalTimeMinutes} min · ₹{selectedJourney.fareBreakdown.unifiedPrice.toFixed(2)}
+                {selectedJourney.totalTimeMinutes} {activeLang === 'gu' ? 'મિનિટ' : 'min'} · {activeLang === 'gu' ? 'નમૂનો' : 'sample'} ₹{selectedJourney.fareBreakdown.unifiedPrice.toFixed(2)}
               </span>
             </div>
           </div>
@@ -301,19 +310,21 @@ export default function App() {
           />
 
           {/* Announcement-Style Step-by-Step Timeline */}
-          <JourneyTimeline journey={selectedJourney} />
+          <JourneyTimeline journey={selectedJourney} lang={activeLang} />
+          <TripAssistant journey={selectedJourney} lang={activeLang} />
         </div>
       )}
 
       {/* Screen 4: Unified Ticket Card */}
       {selectedJourney && (
-        <UnifiedTicket journey={selectedJourney} />
+        <UnifiedTicket journey={selectedJourney} lang={activeLang} />
       )}
 
       {/* Station Detail Bottom Sheet / Modal */}
       {activeStationModal && (
         <StationDetailModal
           station={activeStationModal}
+          lang={activeLang}
           onClose={() => setActiveStationModal(null)}
           onSetOrigin={id => {
             setOriginStopId(id);
@@ -330,6 +341,7 @@ export default function App() {
       {showTransparencyModal && (
         <DataTransparencyModal
           onClose={() => setShowTransparencyModal(false)}
+          lang={activeLang}
         />
       )}
 
@@ -337,7 +349,7 @@ export default function App() {
       <footer className="app-footer">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span className="offline-pulse" style={{ background: '#10B981', boxShadow: '0 0 8px #10B981' }} />
-          <span>Offline-ready · Sample data</span>
+            <span>{t('Offline-ready · Sample data')}</span>
         </div>
 
         <div className="footer-links">
@@ -345,13 +357,13 @@ export default function App() {
             className="footer-link"
             onClick={() => setShowTransparencyModal(true)}
           >
-            Data Transparency
+            {t('Data Transparency')}
           </span>
           <span
             className="footer-link"
             onClick={() => setShowTransparencyModal(true)}
           >
-            Privacy & Terms
+            {t('Privacy & Terms')}
           </span>
           <span>© 2026 YatraOne Transit Initiative</span>
         </div>

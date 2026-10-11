@@ -3,7 +3,7 @@ import { Sliders, RefreshCw, CheckCircle, ShieldCheck, DollarSign, Activity } fr
 import { calculateUnifiedFare, runLargestRemainderAudit } from '../engine/fare.js';
 
 export default function ControlRoom({ journey, onClose }) {
-  const [discountValue, setDiscountValue] = useState(5.0);
+  const [discountValue, setDiscountValue] = useState(0.0);
   const [auditStatus, setAuditStatus] = useState(null);
 
   if (!journey) return null;

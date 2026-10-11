@@ -1,6 +1,6 @@
 /**
  * YatraOne Multimodal Graph & State Search Router
- * Constructs a State Graph where state = (stop_id, current_mode)
+ * Constructs a State Graph where labels track (stop_id, current_mode, transfers_used)
  * Supports Multi-Objective Dijkstra: Fastest, Cheapest, Balanced
  */
 
@@ -135,10 +135,10 @@ export function findPathByObjective(originStopId, destinationStopId, objective =
     }
   }
 
-  // Priority queue implementation using simple sorted array (sufficient for ~30 node graph)
+  // Label-setting Dijkstra: retain separate labels for each transfer count so
+  // a cheap/high-transfer arrival cannot erase a viable low-transfer arrival.
   const queue = [];
   const minCost = new Map();
-  const parentMap = new Map();
 
   for (const startMode of possibleStartModes) {
     const startState = `${originStopId}::${startMode}`;
@@ -147,7 +147,9 @@ export function findPathByObjective(originStopId, destinationStopId, objective =
       state: startState,
       stopId: originStopId,
       currentMode: startMode,
-      cost: 0,
+      cost: objective === 'fastest' ? initialWait
+        : objective === 'cheapest' ? initialWait * 0.001
+          : (0.4 * initialWait / 60),
       totalTime: initialWait,
       inVehicleTime: 0,
       walkingTime: 0,
@@ -159,7 +161,7 @@ export function findPathByObjective(originStopId, destinationStopId, objective =
       path: []
     };
     queue.push(initialRecord);
-    minCost.set(startState, 0);
+    minCost.set(`${startState}::0`, initialRecord.cost);
   }
 
   let bestDestRecord = null;
@@ -170,16 +172,15 @@ export function findPathByObjective(originStopId, destinationStopId, objective =
     const curr = queue.shift();
 
     const [currStopId] = curr.state.split('::');
+    const currLabel = `${curr.state}::${curr.transfers}`;
+
+    if (curr.cost > (minCost.get(currLabel) ?? Infinity)) continue;
 
     if (currStopId === destinationStopId) {
       if (!bestDestRecord || curr.cost < bestDestRecord.cost) {
         bestDestRecord = curr;
         break; // First destination reached with lowest cost
       }
-    }
-
-    if (curr.cost > (minCost.get(curr.state) ?? Infinity)) {
-      continue;
     }
 
     if (curr.transfers > configData.max_transfers) {
@@ -191,11 +192,6 @@ export function findPathByObjective(originStopId, destinationStopId, objective =
       const nextStopId = edge.toStop;
       const nextMode = edge.mode || edge.toMode;
       const nextState = edge.toState;
-
-      // Prevent loop (except intra-station mode change where fromStop === nextStopId)
-      if (edge.fromStop !== nextStopId && curr.path.some(p => p.toStop === nextStopId && p.fromStop !== p.toStop)) {
-        continue;
-      }
 
       const isTransfer = edge.type === 'transfer' || (curr.currentMode !== nextMode);
       const newTransfers = curr.transfers + (isTransfer ? 1 : 0);
@@ -218,21 +214,20 @@ export function findPathByObjective(originStopId, destinationStopId, objective =
       const newDistKm = curr.totalDistanceKm + legDistanceKm;
       const newWalkDistM = curr.walkingDistanceM + legWalkDist;
 
-      // Cost function based on PRD Section 8.2
-      let stepCost = 0;
-      if (objective === 'fastest') {
-        stepCost = newTotalTime + (newTransfers * configData.transfer_penalty_minutes);
-      } else if (objective === 'cheapest') {
-        stepCost = newFare + (0.001 * newTotalTime);
-      } else { // balanced
-        // Normalized weights w=0.5
-        const normFare = newFare / 35.0; // scale against typical max fare
-        const normTime = newTotalTime / 60.0; // scale against typical max minutes
-        stepCost = (0.5 * normFare) + (0.5 * normTime) + (0.2 * newTransfers);
-      }
+      // Additive objective costs keep Dijkstra's ordering valid. Balanced uses
+      // normalized time, estimated fare, transfers, and walking distance.
+      const elapsedDelta = edge.duration + transferPenalty + boardWait;
+      const stepCost = objective === 'fastest'
+        ? elapsedDelta
+        : objective === 'cheapest'
+          ? legFare + (elapsedDelta * 0.001)
+          : (0.4 * elapsedDelta / 60) + (0.4 * legFare / 35)
+            + (isTransfer ? 0.15 : 0) + (0.05 * legWalkDist / 500);
+      const nextCost = curr.cost + stepCost;
+      const nextLabel = `${nextState}::${newTransfers}`;
 
-      if (!minCost.has(nextState) || stepCost < minCost.get(nextState)) {
-        minCost.set(nextState, stepCost);
+      if (!minCost.has(nextLabel) || nextCost < minCost.get(nextLabel)) {
+        minCost.set(nextLabel, nextCost);
         const nextPathItem = {
           ...edge,
           boardWait,
@@ -242,7 +237,7 @@ export function findPathByObjective(originStopId, destinationStopId, objective =
           state: nextState,
           stopId: nextStopId,
           currentMode: nextMode,
-          cost: stepCost,
+          cost: nextCost,
           totalTime: newTotalTime,
           inVehicleTime: newInVehicle,
           walkingTime: newWalkingTime,
@@ -339,6 +334,11 @@ function formatItinerary(record, originStop, destStop) {
     walkingDistanceM: Math.round(record.walkingDistanceM),
     totalDistanceKm: Number(record.totalDistanceKm.toFixed(1)),
     transfersCount: record.transfers,
+    objectiveScore: record.cost,
+    balancedScore: (0.4 * record.totalTime / 60)
+      + (0.4 * fareBreakdown.totalStandalone / 35)
+      + (0.15 * record.transfers)
+      + (0.05 * record.walkingDistanceM / 500),
     modesUsed,
     isThreeModeTrip: modesUsed.includes('metro') && modesUsed.includes('brts') && modesUsed.includes('amts'),
     legs,
@@ -379,6 +379,7 @@ export function generateCandidateJourneys(originStopId, destStopId) {
       const existing = results.find(r => r.signature === signature);
       if (existing && !existing.tags.includes(obj.label)) {
         existing.tags.push(obj.label);
+        existing.objectiveScores[obj.key] = path.objectiveScore;
       }
     } else {
       seenKey.add(signature);
@@ -387,6 +388,7 @@ export function generateCandidateJourneys(originStopId, destStopId) {
         signature,
         primaryObjective: obj.key,
         tags: [obj.label],
+        objectiveScores: { [obj.key]: path.objectiveScore },
         reason: obj.reason,
         ...path
       });

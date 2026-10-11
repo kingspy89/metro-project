@@ -1,0 +1,38 @@
+const gu = {
+  'One journey. Three networks. Drawn like a metro map.': 'એક મુસાફરી. ત્રણ નેટવર્ક. મેટ્રો નકશાની જેમ.',
+  'Planning underground — no internet needed': 'ઑફલાઇન મુસાફરી આયોજન',
+  'Control Room': 'કંટ્રોલ રૂમ', 'About Data': 'ડેટા વિશે', 'Switch language': 'ભાષા બદલો',
+  'Screen 1 — Station Entrance': 'સ્ક્રીન 1 — સ્ટેશન પ્રવેશ', 'Plan Your Multimodal Trip': 'તમારી મલ્ટીમોડલ મુસાફરીનું આયોજન કરો',
+  'Origin Station / Hub': 'પ્રસ્થાન સ્ટેશન / હબ', 'Destination Station / Hub': 'ગંતવ્ય સ્ટેશન / હબ',
+  'Swap origin and destination': 'પ્રસ્થાન અને ગંતવ્ય બદલો', 'Routing Priority:': 'મુસાફરીની પસંદગી:',
+  'Fastest': 'ઝડપી', 'Balanced': 'સંતુલિત', 'Cheapest': 'ઓછા ખર્ચે', 'Find My Journey': 'મારી મુસાફરી શોધો',
+  'Popular routes:': 'લોકપ્રિય માર્ગો:', 'Screen 2 — Departure Board': 'સ્ક્રીન 2 — પ્રસ્થાન બોર્ડ',
+  'Available Connections': 'ઉપલબ્ધ જોડાણો', 'Note: Single optimal connection in sample network': 'નોંધ: નમૂના નેટવર્કમાં એક જ શ્રેષ્ઠ જોડાણ',
+  'Selected': 'પસંદ કરેલ', 'sample': 'નમૂનો', 'walk': 'ચાલવું', 'transfer': 'ટ્રાન્સફર', 'transfers': 'ટ્રાન્સફર',
+  'Screen 3 — Hero Journey Map': 'સ્ક્રીન 3 — મુસાફરીનો નકશો', 'Screen 4 — Sample Fare Estimate': 'સ્ક્રીન 4 — અંદાજિત ભાડું',
+  'Fare Estimate & Ticket Demo': 'ભાડાનો અંદાજ અને ટિકિટ ડેમો', 'Announcement Timeline': 'મુસાફરીના પગલાં',
+  'Configured estimate · Offline timetable': 'અંદાજિત સમય · ઑફલાઇન સમયપત્રક', 'Sample edge-fare sum:': 'નમૂનાના ભાડાનો સરવાળો:',
+  'in-vehicle': 'વાહનમાં', 'Sample edge fares are summed across each ride. These are not official fare quotes or a usable ticket.': 'દરેક સવારીના નમૂના ભાડાનો સરવાળો. આ સત્તાવાર ભાડું કે માન્ય ટિકિટ નથી.',
+  'Sample amounts grouped by network': 'નેટવર્ક પ્રમાણે નમૂનાની રકમ', 'Check Metro fare': 'મેટ્રો ભાડું તપાસો',
+  'Check BRTS fare': 'બીઆરટીએસ ભાડું તપાસો', 'Check AMTS fare': 'એએમટીએસ ભાડું તપાસો',
+  'Sample fare subtotal by network': 'નેટવર્ક પ્રમાણે નમૂનાનું ભાડું', 'Sample estimate breakdown': 'નમૂનાના અંદાજની વિગતો',
+  'Network': 'નેટવર્ક', 'Sample fare subtotal': 'નમૂનાનું ભાડું', 'Share of sample total': 'નમૂના કુલનો હિસ્સો',
+  'Included in sample total': 'નમૂના કુલમાં સમાવેલ', 'Sample subtotal': 'નમૂનાનો ઉપકુલ', 'Multimodal Discount': 'મલ્ટીમોડલ છૂટ',
+  'ESTIMATED SAMPLE TOTAL': 'અંદાજિત નમૂના કુલ', 'How is this estimate calculated?': 'આ અંદાજ કેવી રીતે ગણાય છે?',
+  'Share / Export Ticket PNG': 'ટિકિટ PNG શેર / નિકાસ કરો', 'Downloaded!': 'ડાઉનલોડ થયું!', 'Ask YatraOne': 'યાત્રાવનને પૂછો',
+  'Trip guidance grounded in Google Maps': 'Google Maps આધારિત મુસાફરી માર્ગદર્શન', 'AI COPILOT': 'AI સહાયક',
+  'Prototype routes and fares are estimates. Confirm schedules, bus numbers, and fares with the operator.': 'માર્ગ અને ભાડા અંદાજિત છે. સમય, બસ નંબર અને ભાડું સંચાલક પાસે તપાસો.',
+  'Explain this trip': 'મુસાફરી સમજાવો', 'Nearby bus stops': 'નજીકના બસ સ્ટોપ', 'What should I verify?': 'શું તપાસવું જોઈએ?',
+  'Ask about this trip or a nearby bus stand…': 'મુસાફરી અથવા નજીકના બસ સ્ટેન્ડ વિશે પૂછો…',
+  'Checking grounded sources…': 'વિશ્વસનીય સ્ત્રોત તપાસી રહ્યા છીએ…', 'Data Transparency': 'ડેટા પારદર્શિતા',
+  'Privacy & Terms': 'ગોપનીયતા અને શરતો', 'Offline-ready · Sample data': 'ઑફલાઇન ઉપયોગ · નમૂનાનો ડેટા',
+  'Data Transparency & Governance': 'ડેટા પારદર્શિતા અને સંચાલન', 'What is this trip?': 'આ મુસાફરીની માહિતી',
+  'fastest': 'ઝડપી', 'balanced': 'સંતુલિત', 'cheapest': 'ઓછા ખર્ચે',
+  'Minimum travel time and high-speed transit': 'ઓછામાં ઓછો સમય અને ઝડપી પરિવહન',
+  'Optimal trade-off of time, walking, and cost': 'સમય, ચાલવું અને ખર્ચ વચ્ચે સંતુલન',
+  'Lowest overall passenger fare': 'મુસાફરીનો સૌથી ઓછો અંદાજિત ખર્ચ',
+}
+
+export function translate(text, language = 'en') {
+  return language === 'gu' ? (gu[text] || text) : text
+}

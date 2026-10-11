@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { Ticket, Share2, HelpCircle, ChevronDown, ChevronUp, Download, Check, ShieldAlert } from 'lucide-react';
+import { Ticket, Share2, HelpCircle, ChevronDown, ChevronUp, Download, Check, ShieldAlert, ExternalLink } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { translate } from '../i18n.js';
 
-export default function UnifiedTicket({ journey }) {
+export default function UnifiedTicket({ journey, lang = 'en' }) {
+  const t = text => translate(text, lang);
   const [showFormula, setShowFormula] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
 
@@ -31,11 +33,11 @@ export default function UnifiedTicket({ journey }) {
       // Header
       ctx.fillStyle = '#F8FAFC';
       ctx.font = 'bold 22px system-ui';
-      ctx.fillText('YATRAONE — UNIFIED TRANSIT PASS', 40, 55);
+      ctx.fillText('YATRAONE — JOURNEY FARE ESTIMATE', 40, 55);
 
       ctx.fillStyle = '#94A3B8';
       ctx.font = '13px monospace';
-      ctx.fillText('AHMEDABAD MULTIMODAL NETWORK · SAMPLE TICKET', 40, 80);
+      ctx.fillText('SAMPLE ONLY · NOT A VALID TRANSIT TICKET', 40, 80);
 
       // Route
       ctx.fillStyle = '#60A5FA';
@@ -58,12 +60,12 @@ export default function UnifiedTicket({ journey }) {
 
       ctx.fillStyle = '#94A3B8';
       ctx.font = '13px system-ui';
-      ctx.fillText(`(Standalone Sum: ₹${totalStandalone.toFixed(2)} | Discount: -₹${discount.toFixed(2)})`, 160, 180);
+      ctx.fillText('Estimated total from local sample data', 160, 180);
 
       // Operator splits
       ctx.fillStyle = '#F8FAFC';
       ctx.font = 'bold 14px system-ui';
-      ctx.fillText('REVENUE ALLOCATION (PROPORTIONAL SHARE):', 40, 230);
+      ctx.fillText('SAMPLE FARE SUBTOTAL BY NETWORK:', 40, 230);
 
       let curY = 260;
       allocations.forEach(a => {
@@ -72,7 +74,7 @@ export default function UnifiedTicket({ journey }) {
         ctx.fillRect(40, curY - 12, 12, 12);
         ctx.fillStyle = '#F8FAFC';
         ctx.font = '14px system-ui';
-        ctx.fillText(`${a.operator.toUpperCase()} (${a.sharePercentage}%):`, 60, curY);
+        ctx.fillText(`${a.operator.toUpperCase()}:`, 60, curY);
         ctx.font = 'bold 14px monospace';
         ctx.fillText(`₹${a.allocation.toFixed(2)} (${a.allocationPaise} paise)`, 260, curY);
         curY += 28;
@@ -81,7 +83,7 @@ export default function UnifiedTicket({ journey }) {
       // Disclaimer
       ctx.fillStyle = '#FCD34D';
       ctx.font = 'italic 11px system-ui';
-      ctx.fillText('* Illustrative fares. Not an approved revenue-sharing agreement.', 40, 380);
+      ctx.fillText('* Sample estimate only. Check the operator for the fare.', 40, 380);
 
       // Trigger download
       const link = document.createElement('a');
@@ -111,8 +113,8 @@ export default function UnifiedTicket({ journey }) {
             <Ticket size={24} />
           </div>
           <div>
-            <span className="section-label">Screen 4 — Fare Ticket</span>
-            <h2 className="section-headline">The Unified Ticket</h2>
+            <span className="section-label">{t('Screen 4 — Sample Fare Estimate')}</span>
+            <h2 className="section-headline">{t('Fare Estimate & Ticket Demo')}</h2>
           </div>
         </div>
 
@@ -123,11 +125,11 @@ export default function UnifiedTicket({ journey }) {
         >
           {downloadSuccess ? (
             <>
-              <Check size={16} color="#34D399" /> Downloaded!
+            <Check size={16} color="#34D399" /> {t('Downloaded!')}
             </>
           ) : (
             <>
-              <Download size={16} /> Share / Export Ticket PNG
+              <Download size={16} /> {t('Share / Export Ticket PNG')}
             </>
           )}
         </button>
@@ -137,27 +139,39 @@ export default function UnifiedTicket({ journey }) {
       <div className="honesty-banner">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <ShieldAlert size={18} />
-          <span>Illustrative fares. Not an approved revenue-sharing agreement.</span>
+          <span>{t('Sample edge fares are summed across each ride. These are not official fare quotes or a usable ticket.')}</span>
         </div>
-        <span className="config-tag">Audited via Largest-Remainder</span>
+        <span className="config-tag">{t('Sample amounts grouped by network')}</span>
+      </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+        <a className="icon-btn" href="https://www.gujaratmetrorail.com/ahmedabad/route-and-fares/" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+          {t('Check Metro fare')} <ExternalLink size={14} />
+        </a>
+        <a className="icon-btn" href="https://www.ahmedabadbrts.org/en/information/fare-chart/" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+          {t('Check BRTS fare')} <ExternalLink size={14} />
+        </a>
+        <a className="icon-btn" href="https://www.amts.co.in/ticketing/" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+          {t('Check AMTS fare')} <ExternalLink size={14} />
+        </a>
       </div>
 
       {/* Visual Proportional Width Bar per PRD Section 6.2 Screen 4 */}
       <div className="proportional-bar-container">
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-          <span style={{ fontWeight: 700, color: 'var(--text-bright)' }}>Operator Revenue Allocation</span>
+          <span style={{ fontWeight: 700, color: 'var(--text-bright)' }}>{t('Sample fare subtotal by network')}</span>
           <span style={{ fontFamily: 'var(--font-mono)', color: '#34D399', fontWeight: 700 }}>
-            Total Unified: ₹{unifiedPrice.toFixed(2)} (est.)
+            Route estimate: ₹{unifiedPrice.toFixed(2)} (sample)
           </span>
         </div>
 
-        <div className="proportional-bar" title="Visual proportional revenue distribution">
+        <div className="proportional-bar" title="Share of the prototype estimate by mode">
           {allocations.map(a => (
             <div
               key={a.operator}
               className={`bar-segment ${a.operator}`}
               style={{ width: `${a.sharePercentage}%` }}
-              title={`${a.operator.toUpperCase()}: ₹${a.allocation.toFixed(2)} (${a.sharePercentage}%)`}
+              title={`${a.operator.toUpperCase()} sample subtotal: ₹${a.standalone.toFixed(2)} (${a.sharePercentage}%)`}
             />
           ))}
         </div>
@@ -168,7 +182,7 @@ export default function UnifiedTicket({ journey }) {
               <span className={`logo-dot ${a.operator}`} />
               <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{a.operator}:</span>
               <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-bright)' }}>
-                ₹{a.allocation.toFixed(2)}
+                ₹{a.standalone.toFixed(2)}
               </span>
               <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>
                 ({a.sharePercentage}%)
@@ -180,19 +194,19 @@ export default function UnifiedTicket({ journey }) {
 
       <div className="ticket-stub-perforation" />
 
-      {/* Comparison Table: Standalone vs Unified vs Operator Allocation */}
+      {/* Fare estimate by network */}
       <div>
         <h4 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: 8, color: 'var(--text-secondary)' }}>
-          Fare Comparison & Settlement Matrix
+          {t('Sample estimate breakdown')}
         </h4>
         <div style={{ overflowX: 'auto' }}>
           <table className="fare-table">
             <thead>
               <tr>
-                <th>Operator</th>
-                <th style={{ textAlign: 'right' }}>Standalone Fare</th>
-                <th style={{ textAlign: 'right' }}>Revenue Share (%)</th>
-                <th style={{ textAlign: 'right' }}>Settled Allocation</th>
+                <th>{t('Network')}</th>
+                <th style={{ textAlign: 'right' }}>{t('Sample fare subtotal')}</th>
+                <th style={{ textAlign: 'right' }}>{t('Share of sample total')}</th>
+                <th style={{ textAlign: 'right' }}>{t('Included in sample total')}</th>
               </tr>
             </thead>
             <tbody>
@@ -210,19 +224,19 @@ export default function UnifiedTicket({ journey }) {
                 </tr>
               ))}
               <tr style={{ background: 'rgba(255, 255, 255, 0.04)', fontWeight: 800 }}>
-                <td>SUBTOTALS</td>
+                <td>{t('Sample subtotal')}</td>
                 <td className="numeric">₹{totalStandalone.toFixed(2)}</td>
                 <td className="numeric">100.00%</td>
                 <td className="numeric" style={{ color: '#34D399' }}>₹{unifiedPrice.toFixed(2)}</td>
               </tr>
               <tr style={{ color: '#EC4899', fontWeight: 700 }}>
-                <td>Multimodal Discount</td>
+                <td>{t('Multimodal Discount')}</td>
                 <td className="numeric">-₹{discount.toFixed(2)}</td>
                 <td className="numeric">-</td>
                 <td className="numeric" style={{ color: '#EC4899' }}>-₹{discount.toFixed(2)}</td>
               </tr>
               <tr style={{ background: 'rgba(59, 130, 246, 0.1)', fontWeight: 800 }}>
-                <td style={{ color: 'var(--text-bright)' }}>PASSENGER UNIFIED PRICE</td>
+                <td style={{ color: 'var(--text-bright)' }}>{t('ESTIMATED SAMPLE TOTAL')}</td>
                 <td className="numeric">-</td>
                 <td className="numeric">-</td>
                 <td className="numeric" style={{ color: '#60A5FA', fontSize: '1.15rem' }}>
@@ -234,7 +248,7 @@ export default function UnifiedTicket({ journey }) {
         </div>
       </div>
 
-      {/* "How is this split?" Formula Explainer Toggle */}
+      {/* Fare estimate formula explainer */}
       <div style={{ background: 'var(--bg-station)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
         <button
           onClick={() => setShowFormula(!showFormula)}
@@ -253,7 +267,7 @@ export default function UnifiedTicket({ journey }) {
           }}
         >
           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <HelpCircle size={16} /> How is this split calculated?
+            <HelpCircle size={16} /> {t('How is this estimate calculated?')}
           </span>
           {showFormula ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>

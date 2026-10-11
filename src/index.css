@@ -35,7 +35,7 @@
   --discount-accent: #EC4899;
   --status-tunnel: #818CF8;
 
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-sans: 'Noto Sans Gujarati', 'Nirmala UI', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 
   --shadow-subtle: 0 4px 12px rgba(0, 0, 0, 0.25);
@@ -51,6 +51,33 @@
   --transition-normal: 250ms ease;
   --transition-slow: 400ms cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+.trip-assistant { margin: 22px 0; padding: 20px; border: 1px solid var(--border-board); border-radius: var(--radius-lg); background: linear-gradient(135deg, var(--bg-card), var(--bg-board)); box-shadow: var(--shadow-subtle); }
+.trip-assistant-heading { display: flex; align-items: center; gap: 12px; }
+.trip-assistant-icon { display: grid; place-items: center; width: 38px; height: 38px; color: #a78bfa; background: rgba(139, 92, 246, .15); border-radius: 12px; }
+.trip-assistant-heading h3 { margin: 0; color: var(--text-primary); font-size: 1.05rem; }
+.trip-assistant-heading p { margin: 3px 0 0; color: var(--text-muted); font-size: .82rem; }
+.trip-assistant-tag { margin-left: auto; color: #c4b5fd; font: 700 .67rem var(--font-mono); letter-spacing: .08em; }
+.trip-assistant-notice { margin: 14px 0; padding: 9px 11px; color: var(--text-secondary); background: rgba(148, 163, 184, .08); border-radius: 8px; font-size: .78rem; }
+.assistant-prompts { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.assistant-prompts button { padding: 8px 11px; border: 1px solid var(--border-board); border-radius: 999px; color: var(--text-secondary); background: var(--bg-card); cursor: pointer; font: inherit; font-size: .78rem; }
+.assistant-prompts button:hover { color: var(--text-primary); border-color: #8b5cf6; }
+.assistant-conversation { display: grid; gap: 12px; max-height: 340px; overflow: auto; padding: 8px 2px 14px; }
+.assistant-message { display: flex; align-items: flex-start; gap: 8px; color: var(--text-primary); font-size: .9rem; line-height: 1.5; }
+.assistant-message.user { justify-content: flex-end; }
+.assistant-message.user p { padding: 9px 12px; border-radius: 12px 12px 2px 12px; background: var(--bg-card-active); }
+.assistant-message p { margin: 0; white-space: pre-wrap; }
+.assistant-message > div { max-width: min(760px, 92%); }
+.assistant-sources { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; color: var(--text-muted); font-size: .72rem; }
+.assistant-sources > span { font-weight: 700; color: var(--text-secondary); }
+.assistant-sources a { display: inline-flex; align-items: center; gap: 4px; color: #7dd3fc; }
+.assistant-thinking { color: var(--text-muted); font-size: .8rem; }
+.assistant-error { color: #fca5a5; font-size: .82rem; }
+.assistant-form { display: flex; gap: 8px; margin-top: 12px; }
+.assistant-form input { flex: 1; min-width: 0; padding: 11px 13px; border: 1px solid var(--border-board); border-radius: 10px; color: var(--text-primary); background: var(--bg-station); font: inherit; }
+.assistant-form input:focus { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+.assistant-form button { display: grid; place-items: center; width: 42px; border: 0; border-radius: 10px; color: #fff; background: #7c3aed; cursor: pointer; }
+.assistant-form button:disabled { opacity: .5; cursor: not-allowed; }
 
 /* Daylight (Light Theme) */
 [data-theme="light"] {
@@ -127,16 +154,39 @@ button, select, input, .touch-target {
 
 /* Top Signage Header */
 .station-header {
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 14px 20px;
-  background: var(--bg-board);
+  background: linear-gradient(112deg, #101d38 0%, var(--bg-board) 62%, #11223d 100%);
   border: 1px solid var(--border-board);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-subtle);
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.station-header::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--line-metro) 0 42%, var(--line-brts) 42% 72%, var(--line-amts) 72% 100%);
+}
+
+.station-header::after {
+  content: '';
+  position: absolute;
+  right: 23%;
+  top: -42px;
+  width: 140px;
+  height: 140px;
+  border: 1px solid rgba(96, 165, 250, .1);
+  border-radius: 50%;
+  box-shadow: 0 0 0 14px rgba(96, 165, 250, .025), 0 0 0 30px rgba(96, 165, 250, .02);
+  pointer-events: none;
 }
 
 .brand-wrapper {
@@ -265,11 +315,25 @@ button, select, input, .touch-target {
 
 /* Screen 1: Station Entrance / Search Strip */
 .station-entrance {
-  background: var(--bg-board);
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(155deg, var(--bg-board), rgba(14, 31, 56, .96));
   border: 1px solid var(--border-board);
   border-radius: var(--radius-lg);
   padding: 24px;
   box-shadow: var(--shadow-elevated);
+}
+
+.station-entrance::before,
+.departure-board::before,
+.hero-map-section::before {
+  content: '';
+  display: block;
+  width: 54px;
+  height: 4px;
+  margin-bottom: 16px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--line-metro) 0 50%, var(--line-brts) 50% 100%);
 }
 
 .search-title-row {
@@ -352,6 +416,15 @@ button, select, input, .touch-target {
   outline: none;
   cursor: pointer;
   transition: border-color var(--transition-fast);
+}
+
+.select-input:focus-visible,
+.icon-btn:focus-visible,
+.chip-btn:focus-visible,
+.popular-pill:focus-visible,
+.primary-search-btn:focus-visible {
+  outline: 3px solid var(--border-focus);
+  outline-offset: 3px;
 }
 
 .select-input:focus {
@@ -670,6 +743,35 @@ button, select, input, .touch-target {
   -webkit-overflow-scrolling: touch;
 }
 
+.departure-board, .hero-map-section, .unified-ticket-card, .control-room-panel {
+  position: relative;
+  overflow: hidden;
+}
+
+html[lang="gu"],
+[lang="gu"] {
+  font-family: 'Noto Sans Gujarati', 'Nirmala UI', system-ui, sans-serif;
+  letter-spacing: 0;
+}
+
+[lang="gu"] .section-label,
+[lang="gu"] .selector-tag,
+[lang="gu"] .popular-label {
+  letter-spacing: 0;
+}
+
+@media (max-width: 680px) {
+  .station-header { align-items: flex-start; padding: 14px; }
+  .header-actions { width: 100%; gap: 7px; }
+  .header-actions .offline-pill { width: 100%; justify-content: center; }
+  .header-actions .icon-btn { flex: 1; padding-inline: 8px; }
+  .station-entrance, .hero-map-section { padding: 16px; }
+  .route-selector-strip { gap: 10px; }
+  .popular-trips-section { align-items: flex-start; }
+  .trip-assistant { padding: 15px; }
+  .assistant-form input { font-size: 16px; }
+}
+
 .metro-svg {
   display: block;
   min-width: 680px;
@@ -703,10 +805,19 @@ button, select, input, .touch-target {
 
 /* Line-Draw Animation per PRD Section 6.1 */
 .animated-route-line {
-  stroke-dasharray: 1000;
-  stroke-dashoffset: 1000;
-  animation: drawLine 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: drawLine 1.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+.active-map-leg {
+  filter: drop-shadow(0 0 4px var(--leg-color)) drop-shadow(0 0 9px var(--leg-color));
+  pointer-events: none;
+}
+
+.active-route-halo { opacity: .38; }
+.active-route-core { opacity: 1; }
+.active-route-centerline { opacity: .86; }
 
 @keyframes drawLine {
   to {

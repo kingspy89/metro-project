@@ -45,8 +45,18 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
     .map(id => stopsById.get(id))
     .filter(Boolean)
     .map(s => `${s.schematic_x},${s.schematic_y}`);
-  
-  const activePathD = activePathPoints.length > 0 ? `M ${activePathPoints.join(' L ')}` : '';
+  const activeLegPaths = selectedJourney?.legs.map((leg, index) => {
+    const stopIds = [leg.fromStop, ...(leg.intermediateStops || []), leg.toStop];
+    const points = stopIds.map(id => stopsById.get(id)).filter(Boolean)
+      .map(stop => `${stop.schematic_x},${stop.schematic_y}`);
+    const lineColor = leg.type === 'transfer' ? '#C4B5FD'
+      : leg.mode !== 'metro' ? (leg.mode === 'brts' ? '#34D399' : '#FBBF24')
+        : leg.lineId === 'LINE_METRO_NS' ? '#FB7185'
+          : leg.lineId === 'LINE_METRO_GANDHINAGAR' ? '#C4B5FD' : '#60A5FA';
+    return { key: `${index}-${leg.fromStop}-${leg.toStop}`, type: leg.type, mode: leg.mode, color: lineColor, d: points.length > 1 ? `M ${points.join(' L ')}` : '' };
+  }).filter(leg => leg.d) || [];
+  const journeyKey = selectedJourney?.signature || selectedJourney?.legs
+    .map(leg => `${leg.type}:${leg.fromStop}>${leg.toStop}`).join('|') || '';
 
   // Center on active route when selected
   useEffect(() => {
@@ -69,7 +79,7 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
         });
       }
     }
-  }, [selectedJourney?.id]);
+  }, [journeyKey]);
 
   // Mouse wheel zoom
   const handleWheel = (e) => {
@@ -418,19 +428,43 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
             </>
           )}
 
-          {/* 5. Active Highlight Route (Solid Illuminated Glow Path) */}
-          {activePathD && (
-            <path
-              d={activePathD}
-              stroke="#38BDF8"
-              strokeWidth="12"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-              filter="url(#route-highlight-glow)"
-              className="animated-route-line"
-            />
-          )}
+          {/* 5. Highlight each ride and walking transfer as its own path */}
+          {activeLegPaths.map(leg => (
+            <g key={`${journeyKey}-${leg.key}`} className={`active-map-leg ${leg.type}`} style={{ '--leg-color': leg.color }}>
+              <path
+                d={leg.d}
+                pathLength={leg.type === 'ride' ? '1' : undefined}
+                stroke={leg.color}
+                strokeWidth={leg.type === 'transfer' ? '10' : '18'}
+                strokeDasharray={leg.type === 'transfer' ? '8 7' : undefined}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+                className="active-route-halo"
+              />
+              <path
+                d={leg.d}
+                pathLength={leg.type === 'ride' ? '1' : undefined}
+                stroke={leg.color}
+                strokeWidth={leg.type === 'transfer' ? '4' : '8'}
+                strokeDasharray={leg.type === 'transfer' ? '8 7' : undefined}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+                className={leg.type === 'ride' ? 'animated-route-line active-route-core' : 'active-route-core'}
+              />
+              {leg.type === 'ride' && <path
+                d={leg.d}
+                pathLength="1"
+                stroke="#FFFFFF"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+                className="active-route-centerline"
+              />}
+            </g>
+          ))}
 
           {/* 6. Stations, Interchange Hubs, and Non-Overlapping Labels (filtered by mode) */}
           {stopsData.filter(isStationVisible).map(stop => {

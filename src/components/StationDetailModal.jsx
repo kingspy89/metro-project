@@ -4,7 +4,7 @@ import transfersData from '../data/transfers.json' with { type: 'json' };
 import linesData from '../data/lines.json' with { type: 'json' };
 import { stopsById } from '../engine/graph.js';
 
-export default function StationDetailModal({ station, onClose, onSetOrigin, onSetDest }) {
+export default function StationDetailModal({ station, onClose, onSetOrigin, onSetDest, lang = 'en' }) {
   if (!station) return null;
 
   // Find transfers connected to this station
@@ -25,10 +25,10 @@ export default function StationDetailModal({ station, onClose, onSetOrigin, onSe
             </div>
             <div>
               <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', color: 'var(--text-secondary)', fontWeight: 700 }}>
-                {station.transport_mode === 'metro' ? 'Metro Station' : station.transport_mode === 'brts' ? 'BRTS Stop' : 'AMTS Bus Stand'}
+                {lang === 'gu' ? (station.transport_mode === 'metro' ? 'મેટ્રો સ્ટેશન' : station.transport_mode === 'brts' ? 'બીઆરટીએસ સ્ટોપ' : 'એએમટીએસ બસ સ્ટેન્ડ') : (station.transport_mode === 'metro' ? 'Metro Station' : station.transport_mode === 'brts' ? 'BRTS Stop' : 'AMTS Bus Stand')}
               </div>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-bright)' }}>
-                {station.stop_name}
+                {lang === 'gu' ? (station.stop_name_gu || station.stop_name) : station.stop_name}
               </h3>
               {station.stop_name_gu && (
                 <div style={{ fontSize: '0.95rem', color: '#94A3B8', fontWeight: 600 }}>
@@ -45,29 +45,29 @@ export default function StationDetailModal({ station, onClose, onSetOrigin, onSe
 
         <div style={{ background: 'var(--bg-card)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)', display: 'grid', gap: 10 }}>
           <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-            Stop information
+            {lang === 'gu' ? 'સ્ટોપની માહિતી' : 'Stop information'}
           </div>
           <div style={{ fontSize: '0.9rem', color: 'var(--text-bright)' }}>
-            <strong>Corridor:</strong> {line?.line_name || station.transport_mode.toUpperCase()}
+            <strong>{lang === 'gu' ? 'કોરિડોર:' : 'Corridor:'}</strong> {line?.line_name || station.transport_mode.toUpperCase()}
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-            Prototype stop ID: {station.stop_id}. Route numbers and live arrivals are not available in this local dataset.
+            {lang === 'gu' ? `નમૂનાનો સ્ટોપ ID: ${station.stop_id}. આ સ્થાનિક ડેટામાં રૂટ નંબર અને લાઇવ આગમન ઉપલબ્ધ નથી.` : `Prototype stop ID: ${station.stop_id}. Route numbers and live arrivals are not available in this local dataset.`}
           </div>
           <a href={mapsSearchUrl} target="_blank" rel="noreferrer" className="icon-btn" style={{ justifyContent: 'center', textDecoration: 'none' }}>
-            <MapPin size={16} /> Find this {station.transport_mode === 'metro' ? 'station' : 'bus stand'} in Google Maps <ExternalLink size={14} />
+            <MapPin size={16} /> {lang === 'gu' ? 'Google Maps પર શોધો' : `Find this ${station.transport_mode === 'metro' ? 'station' : 'bus stand'} in Google Maps`} <ExternalLink size={14} />
           </a>
         </div>
 
         {/* Instructions */}
         <div style={{ background: 'var(--bg-station)', padding: 14, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
           <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-            Boarding & Alighting Guidance
+            {lang === 'gu' ? 'ચઢવા અને ઉતરવા માટેની માહિતી' : 'Boarding & Alighting Guidance'}
           </div>
           <div style={{ fontSize: '0.95rem', color: 'var(--text-bright)', marginTop: 4 }}>
             {station.is_interchange ? (
-              <span>★ Multimodal Interchange Hub: Key interchange point between networks. Follow colored overhead directional signage.</span>
+              <span>{lang === 'gu' ? 'મલ્ટીમોડલ ઇન્ટરચેન્જ હબ: નેટવર્ક વચ્ચેનું મહત્વનું જોડાણ. રંગીન દિશા સૂચક ચિહ્નો અનુસરો.' : '★ Multimodal Interchange Hub: Key interchange point between networks. Follow colored overhead directional signage.'}</span>
             ) : (
-            <span>Regular transit stop on this prototype corridor. Check Google Maps or the operator for current service details.</span>
+            <span>{lang === 'gu' ? 'આ નમૂના કોરિડોરનો સામાન્ય સ્ટોપ. હાલની સેવા માટે Google Maps અથવા સંચાલક પાસે તપાસો.' : 'Regular transit stop on this prototype corridor. Check Google Maps or the operator for current service details.'}</span>
             )}
           </div>
         </div>
@@ -76,7 +76,7 @@ export default function StationDetailModal({ station, onClose, onSetOrigin, onSe
         {relatedTransfers.length > 0 && (
           <div>
             <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: 8 }}>
-              Connecting Transfers from this Stop
+              {lang === 'gu' ? 'આ સ્ટોપથી ટ્રાન્સફર' : 'Connecting Transfers from this Stop'}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {relatedTransfers.map((tr, idx) => {
@@ -87,7 +87,7 @@ export default function StationDetailModal({ station, onClose, onSetOrigin, onSe
                       <Footprints size={16} color="var(--walk-connector)" />
                       <div>
                         <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-bright)' }}>
-                          Walk to {targetStop?.stop_name}
+                          {lang === 'gu' ? `${targetStop?.stop_name_gu || targetStop?.stop_name} સુધી ચાલો` : `Walk to ${targetStop?.stop_name}`}
                         </div>
                         <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
                           {tr.walking_distance_m} m • ~{tr.walking_time_minutes} min walk
@@ -112,7 +112,7 @@ export default function StationDetailModal({ station, onClose, onSetOrigin, onSe
               onClose();
             }}
           >
-            Set as Origin
+            {lang === 'gu' ? 'પ્રસ્થાન તરીકે પસંદ કરો' : 'Set as Origin'}
           </button>
           <button
             className="icon-btn"
@@ -122,7 +122,7 @@ export default function StationDetailModal({ station, onClose, onSetOrigin, onSe
               onClose();
             }}
           >
-            Set as Destination
+            {lang === 'gu' ? 'ગંતવ્ય તરીકે પસંદ કરો' : 'Set as Destination'}
           </button>
         </div>
       </div>

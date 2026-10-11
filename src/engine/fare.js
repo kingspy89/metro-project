@@ -10,7 +10,7 @@
  * @param {number} unifiedDiscount 
  * @returns {object} Fare summary and exact allocations
  */
-export function calculateUnifiedFare(operatorFares, unifiedDiscount = 5.0) {
+export function calculateUnifiedFare(operatorFares, unifiedDiscount = 0.0) {
   // Group fares by operator
   const standaloneByOperator = {};
   for (const item of operatorFares) {
@@ -92,8 +92,9 @@ export function calculateUnifiedFare(operatorFares, unifiedDiscount = 5.0) {
   const exactSumMatches = Math.abs(sumAllocations - unifiedPrice) < 0.0001;
 
   // Explanation string
-  const formulaExplanation = `Unified Ticket: ₹${totalStandalone.toFixed(2)} - ₹${unifiedDiscount.toFixed(2)} discount = ₹${unifiedPrice.toFixed(2)}. ` +
-    `Each operator receives a proportional split R_i = (F_i / ${totalStandalone.toFixed(2)}) × ₹${unifiedPrice.toFixed(2)}, rounded with the Largest-Remainder method to ensure the sum equals exactly ₹${unifiedPrice.toFixed(2)}.`;
+  const formulaExplanation = unifiedDiscount > 0
+    ? `Simulation only: sample fares of ₹${totalStandalone.toFixed(2)} minus a hypothetical ₹${unifiedDiscount.toFixed(2)} discount gives ₹${unifiedPrice.toFixed(2)}.`
+    : `Prototype estimate: local sample fare values are added by operator to ₹${totalStandalone.toFixed(2)}. This is not an official fare quote.`;
 
   return {
     totalStandalone: Number(totalStandalone.toFixed(2)),
