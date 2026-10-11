@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import stopsData from '../data/stops.json' with { type: 'json' };
 import linesData from '../data/lines.json' with { type: 'json' };
 import transfersData from '../data/transfers.json' with { type: 'json' };
+import connectionsData from '../data/connections.json' with { type: 'json' };
 import { stopsById } from '../engine/graph.js';
 import { 
   ZoomIn, 
@@ -118,6 +119,14 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
     brts: '#10B981',
     amts: '#F59E0B',
   };
+
+  // Draw each rail segment between adjacent stops from the routing graph.
+  // This keeps the displayed sequence in sync with the route planner instead
+  // of drawing a single straight corridor through unrelated stations.
+  const metroSegments = connectionsData
+    .filter(edge => edge.transport_mode === 'metro' && edge.from_stop_id < edge.to_stop_id)
+    .map(edge => ({ edge, from: stopsById.get(edge.from_stop_id), to: stopsById.get(edge.to_stop_id) }))
+    .filter(({ from, to }) => from && to);
 
   // Only show transfers when all modes are visible (multi-mode context)
   const showTransfers = filterMode === 'all' || filterMode === 'route_only';
@@ -324,56 +333,14 @@ export default function MetroMap({ selectedJourney, onSelectStation, activeLang 
           )}
 
           {/* 4. Base Transit Network Lines */}
-          {/* Metro East-West Line (Solid Blue Corridor) */}
-          {isModeVisible('metro') && (
-            <path
-              d="M 80 560 L 1460 560"
-              stroke="#3B82F6"
-              strokeWidth="9"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-              opacity={selectedJourney ? 0.35 : 0.85}
-            />
-          )}
-
-          {/* Metro North-South Line (Solid Red Corridor) */}
-          {isModeVisible('metro') && (
-            <path
-              d="M 540 920 L 540 90"
-              stroke="#EF4444"
-              strokeWidth="9"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-              opacity={selectedJourney ? 0.35 : 0.85}
-            />
-          )}
-
-          {/* Metro Gandhinagar Extension & GIFT City (Purple Corridor) */}
-          {isModeVisible('metro') && (
-            <>
-              <path
-                d="M 540 90 Q 600 80, 620 80 L 1570 50"
-                stroke="#8B5CF6"
-                strokeWidth="8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-                opacity={selectedJourney ? 0.35 : 0.85}
-              />
-              {/* GIFT City Branch */}
-              <path
-                d="M 1110 50 L 1180 130 L 1280 130"
-                stroke="#8B5CF6"
-                strokeWidth="7"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-                opacity={selectedJourney ? 0.35 : 0.85}
-              />
-            </>
-          )}
+          {isModeVisible('metro') && metroSegments.map(({ edge, from, to }) => {
+            const color = edge.line_id === 'LINE_METRO_EW' ? '#3B82F6'
+              : edge.line_id === 'LINE_METRO_NS' ? '#EF4444' : '#8B5CF6';
+            return <line key={`${edge.line_id}-${edge.from_stop_id}-${edge.to_stop_id}`}
+              x1={from.schematic_x} y1={from.schematic_y} x2={to.schematic_x} y2={to.schematic_y}
+              stroke={color} strokeWidth="8" strokeLinecap="round"
+              opacity={selectedJourney ? 0.35 : 0.85} />;
+          })}
 
           {/* BRTS Janmarg Trunk Lines (Emerald Green) */}
           {isModeVisible('brts') && (
