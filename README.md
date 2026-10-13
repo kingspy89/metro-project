@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 # YatraOne
 ### Ahmedabad transit, connected.
@@ -189,5 +189,5 @@ public/
 <div align="center">
 
 **YatraOne** · Make the next connection easier to see.
-
+guys please don't copy without credit
 </div>
