@@ -24,8 +24,16 @@ export default function StationEntrance({
   const selectedDestination = stopsData.find(stop => stop.stop_id === destStopId);
   const [originDraft, setOriginDraft] = useState(selectedOrigin ? stopLabel(selectedOrigin) : '');
   const [destinationDraft, setDestinationDraft] = useState(selectedDestination ? stopLabel(selectedDestination) : '');
+  const [activePicker, setActivePicker] = useState('origin');
   useEffect(() => { setOriginDraft(selectedOrigin ? stopLabel(selectedOrigin) : ''); }, [originStopId, lang]);
   useEffect(() => { setDestinationDraft(selectedDestination ? stopLabel(selectedDestination) : ''); }, [destStopId, lang]);
+  const filteredStopOptions = useMemo(() => {
+    const query = (activePicker === 'origin' ? originDraft : destinationDraft).trim().toLocaleLowerCase();
+    const matches = query
+      ? stopOptions.filter(option => option.label.toLocaleLowerCase().includes(query))
+      : stopOptions;
+    return matches.slice(0, 60);
+  }, [activePicker, destinationDraft, originDraft, stopOptions]);
   const validInputs = optionToId.has(originDraft) && optionToId.has(destinationDraft);
   const popularTrips = [
     {
@@ -79,7 +87,8 @@ export default function StationEntrance({
             id="origin-select"
             value={originDraft}
             placeholder={t('Search 3,000+ stations and bus stops')}
-            onChange={e => { setOriginDraft(e.target.value); if (optionToId.has(e.target.value)) onChangeOrigin(optionToId.get(e.target.value)); }}
+            onFocus={() => setActivePicker('origin')}
+            onChange={e => { setActivePicker('origin'); setOriginDraft(e.target.value); if (optionToId.has(e.target.value)) onChangeOrigin(optionToId.get(e.target.value)); }}
             className="select-input"
           />
         </div>
@@ -103,13 +112,14 @@ export default function StationEntrance({
             id="dest-select"
             value={destinationDraft}
             placeholder={t('Search 3,000+ stations and bus stops')}
-            onChange={e => { setDestinationDraft(e.target.value); if (optionToId.has(e.target.value)) onChangeDest(optionToId.get(e.target.value)); }}
+            onFocus={() => setActivePicker('destination')}
+            onChange={e => { setActivePicker('destination'); setDestinationDraft(e.target.value); if (optionToId.has(e.target.value)) onChangeDest(optionToId.get(e.target.value)); }}
             className="select-input"
           />
         </div>
       </div>
       <datalist id="transit-stop-options">
-        {stopOptions.map(option => <option key={option.id} value={option.label} />)}
+        {filteredStopOptions.map(option => <option key={option.id} value={option.label} />)}
       </datalist>
 
       {/* Preference Chips & Search Action */}

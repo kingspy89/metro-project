@@ -7,6 +7,10 @@
 
 <img src="public/images/gemini-generated-hero-poster.jpg" alt="Ahmedabad Metro at sunset above the Sabarmati River" width="100%" />
 
+> **YatraOne is not just a route finder. It is a visual control surface for Ahmedabad's entire connected journey.**
+>
+> Search a trip, compare the trade-offs, follow every transfer, inspect the fare math, and keep the data limitations visible.
+
 <p>
   <img alt="React 19" src="https://img.shields.io/badge/React-19-FF842E?logo=react&logoColor=white" />
   <img alt="Vite 8" src="https://img.shields.io/badge/Vite-8-29231F?logo=vite&logoColor=FF842E" />
@@ -19,6 +23,28 @@
 </div>
 
 ---
+
+## The YatraOne experience
+
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│  YATRAONE / AHMEDABAD                 ● METRO  ● BRTS  ● AMTS            │
+│  Move smarter across Ahmedabad.                                         │
+├─────────────────────────────────────────────────────────────────────────┤
+│  FROM  Thaltej Gam  ⇄  TO  Kankaria Lake       [ FASTEST | FARE | MIX ] │
+├─────────────────────────────────────────────────────────────────────────┤
+│  01  SEARCH       →  02  COMPARE       →  03  FOLLOW       →  04  VERIFY│
+│      Stops +          Fast / cheap /        Map + timeline       Fare +  │
+│      stations         balanced              transfers            sources │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+YatraOne treats a journey like a **live station board, a map, and a transparent fare receipt in one interface**. The interface is deliberately designed around four questions:
+
+1. **Where do I start?** — Search Metro stations and bus stops across Ahmedabad.
+2. **What are my choices?** — Compare fastest, cheapest, and balanced itineraries.
+3. **What happens next?** — Follow a visual route, ride legs, walks, and transfers.
+4. **What should I trust?** — Inspect sample, feed, and predicted fare labels before travelling.
 
 ## At a glance
 
@@ -36,6 +62,27 @@ YatraOne brings bus route numbers, transfer guidance, a geographic network map, 
 
 ## A transit experience built for the city
 
+### Screens, not just features
+
+| Screen | What makes it distinctive |
+| --- | --- |
+| **Cinematic landing hero** | Looping Ahmedabad Metro visual, glass navigation, and a seeded trip preview that makes the product understandable before the first click. |
+| **Station Entrance** | A focused origin/destination selector with popular trips and three planning objectives. |
+| **Departure Board** | Split-flap-inspired journey cards make route trade-offs scan like a station departures board. |
+| **Hero Journey Map** | A geographic SVG network with route filters, zoom, pan, river geometry, active legs, stop details, and subtle citywide context. |
+| **Announcement Timeline** | Every ride, walk, route change, distance, duration, and fare is translated into a step-by-step travel story. |
+| **Unified Ticket Demo** | A ticket-style fare breakdown, network allocation bar, exact-paise formula, operator links, and offline PNG export. |
+| **Operator Control Room** | A simulation dashboard for discounts, operator payouts, and a 100-case largest-remainder settlement audit. |
+| **Ask YatraOne** | An optional assistant that explains the selected itinerary and can return grounded Google Maps references. |
+
+### The visual language
+
+- **Orange** is the YatraOne action signal: search, focus, selection, and the Ahmedabad sunset palette.
+- **Blue** marks Metro, **green** marks Janmarg BRTS, and **amber** marks AMTS.
+- **Dark station-board mode** keeps dense maps and fare details legible; a daylight theme is also available.
+- **Gujarati mode** carries station names, journey instructions, controls, and assistant prompts into the city's local script.
+- **Honesty is part of the UI.** Sample fares, feed fares, predicted fares, and unavailable fares are intentionally different visual states.
+
 - **Plan across modes.** Search more than 3,100 bus stops and Metro stations, then compare Fastest, Lowest Known Fare, and Balanced routes.
 - **Explore the network.** See 623 bus routes drawn from feed stop sequences, with mode filters, zoom, pan, stop details, and active-route highlighting.
 - **Follow the route.** See selected legs highlighted by transit mode, with step-by-step transfer guidance.
@@ -44,6 +91,15 @@ YatraOne brings bus route numbers, transfer guidance, a geographic network map, 
 - **Keep the controls legible.** A transparent, blurred glass header and boxed navigation sit over the video with warm orange highlights.
 - **Check the source.** Stop details link to Google Maps searches; fare estimates link to operator fare pages.
 - **Try it offline.** The core planner and bundled data work locally after the app loads.
+
+### Interface gallery
+
+| Landing page | Journey map |
+| --- | --- |
+| <img src="public/images/gemini-generated-hero-poster.jpg" alt="YatraOne cinematic Ahmedabad Metro landing page" width="100%" /> | <img src="public/images/ahmedabad-metro-hero.jpg" alt="Ahmedabad Metro visual used by YatraOne" width="100%" /> |
+| Cinematic hero with a glass station header and network legend. | The visual language behind the map: warm orange, transit blues, and city-scale movement. |
+
+> **Want to see the interface in motion?** The landing hero uses [`public/videos/gemini_generated_video_429b205b.mp4`](public/videos/gemini_generated_video_429b205b.mp4). The repository also includes [`public/videos/ahmedabad-metro-hero.mp4`](public/videos/ahmedabad-metro-hero.mp4) as an alternate hero asset.
 
 ## Route finding
 
@@ -175,14 +231,70 @@ Keep future feature requests and implementation plans here so the README remains
 
 ```text
 src/
-├── components/   # Geographic map, stop search, trip details, fare disclosure
-├── data/         # Metro prototype plus imported GTFS bus graph, patterns, and metadata
-├── engine/       # Heap-based routing, fare status, startup validation
-└── security/     # Input sanitization and search rate limiting
+├── App.jsx                 # App shell, navigation, search state, theme + language
+├── components/
+│   ├── StationEntrance    # Origin / destination search
+│   ├── DepartureBoard     # Route comparison cards
+│   ├── MetroMap           # Geographic SVG network and interactions
+│   ├── JourneyTimeline    # Ride and transfer instructions
+│   ├── UnifiedTicket      # Fare receipt, formula, export
+│   ├── ControlRoom        # Settlement simulation and audit
+│   ├── TripAssistant      # Optional grounded trip help
+│   └── ...                # Modals, security status, station details
+├── data/                  # Metro prototype + imported GTFS graph, patterns, metadata
+├── engine/
+│   ├── graph.js           # Transfer-aware graph construction
+│   ├── routePlanner.worker.js # Off-main-thread search
+│   ├── fare.js            # Fare estimates and exact-paise allocation
+│   └── validator.js       # Startup and data validation
+├── security/              # Input sanitization and search rate limiting
+└── i18n.js                # English / Gujarati interface copy
 public/
-├── images/       # Hero poster artwork
-└── videos/       # Looping landing-page video
+├── images/                # Hero poster artwork
+└── videos/                # Looping landing-page video assets
 ```
+
+## Engineering highlights
+
+```mermaid
+sequenceDiagram
+  participant P as Passenger
+  participant UI as YatraOne UI
+  participant W as Route Worker
+  participant G as Transit Graph
+  participant F as Fare Engine
+
+  P->>UI: Choose origin, destination, preference
+  UI->>UI: Validate stop IDs + rate-limit search
+  UI->>W: Send route request
+  W->>G: Explore stop-and-mode states
+  G-->>W: Candidate journeys
+  W->>F: Calculate known and predicted fares
+  F-->>W: Ranked fare breakdowns
+  W-->>UI: Journey cards + selected itinerary
+  UI-->>P: Map, timeline, ticket, assistant
+```
+
+### Why the architecture matters
+
+- **Worker-first routing:** the large bus graph does not block map controls or animations.
+- **Validated inputs:** searches use a known stop-ID set and a rate limiter before reaching the worker.
+- **Honest fare states:** a missing fare never silently becomes an official-looking quote.
+- **Lazy feature loading:** trip-only panels, the map, assistant, and data sheets load when needed.
+- **Deterministic settlement math:** the ticket and control room use largest-remainder allocation so displayed paise add up exactly.
+
+## Project roadmap
+
+The product is deliberately honest about the gap between a strong prototype and a production transit service:
+
+| Now | Next |
+| --- | --- |
+| Multimodal route exploration across Metro, BRTS, and AMTS | Service-calendar and time-of-day-aware departures |
+| Geographic network map with active-trip highlighting | Live arrivals and operator disruption data |
+| English / Gujarati journey guidance | Verified station entrances, accessibility, and platform details |
+| Sample, feed, and predicted fare disclosure | Authoritative fare verification for every network |
+| Offline-ready local planner | Carefully evaluated Maps Platform integration |
+
 
 ---
 

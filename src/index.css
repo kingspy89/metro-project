@@ -522,7 +522,8 @@ button, select, input, .touch-target {
 
 @media (max-width: 680px) {
   .landing-hero { min-height: min(790px, 100svh); padding: 14px 16px 22px; }
-  .hero-video { object-position: 57% center; }
+  .hero-video { display: none; }
+  .landing-hero { background: #030907 url('/images/gemini-generated-hero-poster.jpg') center 58% / cover no-repeat; }
   .hero-nav { padding: 12px; gap: 8px; }
   .hero-nav .brand-wrapper { gap: 8px; }
   .hero-nav .brand-title { font-size: 1.05rem; }

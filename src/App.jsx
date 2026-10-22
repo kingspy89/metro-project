@@ -31,6 +31,7 @@ export default function App() {
   // Theme & Language State
   const [theme, setTheme] = useState('dark');
   const [activeLang, setActiveLang] = useState('en');
+  const [loadHeroVideo, setLoadHeroVideo] = useState(false);
   const t = text => translate(text, activeLang);
 
   // Route Planning State (Default seeded demo: Thaltej -> Kankaria Lake)
@@ -60,6 +61,13 @@ export default function App() {
     if (initialSearchStarted.current) return;
     initialSearchStarted.current = true;
     handleExecuteSearch('M_EW_02', 'AMC_1334', 'balanced');
+  }, []);
+
+  // Let the page render and the initial route search start before fetching video bytes.
+  useEffect(() => {
+    if (window.matchMedia('(max-width: 680px), (prefers-reduced-motion: reduce)').matches) return undefined;
+    const timer = window.setTimeout(() => setLoadHeroVideo(true), 2500);
+    return () => window.clearTimeout(timer);
   }, []);
 
   // Update HTML data-theme attribute
@@ -172,12 +180,12 @@ export default function App() {
         muted
         loop
         playsInline
-        preload="auto"
+        preload="none"
         poster="/images/gemini-generated-hero-poster.jpg"
         aria-hidden="true"
         tabIndex={-1}
       >
-        <source src="/videos/gemini_generated_video_429b205b.mp4" type="video/mp4" />
+        {loadHeroVideo && <source src="/videos/gemini_generated_video_429b205b.mp4" type="video/mp4" />}
       </video>
       <header className="station-header hero-nav">
         <div className="brand-wrapper">
